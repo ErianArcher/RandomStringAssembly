@@ -1,5 +1,7 @@
-#include <stdio.h>
+#include <iostream>
 #include <mpi.h>
+
+using namespace std;
 
 int main(int argc, char** argv) {
     // Initialize the MPI environment
@@ -22,6 +24,7 @@ int main(int argc, char** argv) {
     printf("Hello world from processor %s, rank %d out of %d processors\n",
            processor_name, world_rank, world_size);
 
+    cout << name_len;
     // Finalize the MPI environment.
     MPI_Finalize();
     return 0;
