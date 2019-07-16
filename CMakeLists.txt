@@ -5,5 +5,5 @@ message(STATUS "Run: ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} 
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(RandomStringAssembly main.cpp)
+add_executable(RandomStringAssembly main.cpp entity/k_mer.cpp entity/k_mer.h entity/k_minus_mer.cpp entity/k_minus_mer.h entity/idset.h entity/read.cpp entity/read.h)
 target_link_libraries(RandomStringAssembly PUBLIC MPI::MPI_CXX)
