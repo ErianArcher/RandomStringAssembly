@@ -84,6 +84,26 @@ int enlargeRead(string newRead, int increasedLength, ReadId_t readId, ALTERPOS_t
     return 1;
 }
 
+int cutRead(string newRead, int deleteLength, ReadId_t readId, ALTERPOS_t alterationPos) {
+    // 不管什么方法都重写文件
+    stringstream afile;
+    afile << READ_DIR << readId;
+    ofstream alterfstream;
+    alterfstream.open(afile.str());
+    if (!alterfstream) {
+        cerr << "File IO error: " << strerror(errno) << "\n";
+        return 0;
+    }
+    alterfstream << newRead;
+    if (!alterfstream.good()) {
+        cerr << "File IO error: " << strerror(errno) << "\n";
+        alterfstream.close();
+        return 0;
+    }
+    alterfstream.close();
+    return 1;
+}
+
 KMERPOS_t getKMerPositionInRead(string kMerStr, string readStr) {
     auto pos = readStr.find(kMerStr);
     auto readLen = readStr.length();

@@ -41,6 +41,7 @@ int cutRead(string newRead, int increasedLength, ReadId_t readId, ALTERPOS_t alt
 
 /**
  * Check if the kMer is in this read, and if so then return its blurred position in the read.
+ * 潜在问题：同一个k-mer被同一个edge经过多次
  * @param kMerStr the string of k-mer
  * @param read the structure of Read
  * @return three types of positions or not in this read
