@@ -106,15 +106,40 @@ int cutRead(string newRead, int deleteLength, ReadId_t readId, ALTERPOS_t altera
 
 KMERPOS_t getKMerPositionInRead(string kMerStr, string readStr) {
     auto pos = readStr.find(kMerStr);
+    auto reversePos = readStr.rfind(kMerStr);
     auto readLen = readStr.length();
     auto kMerLen = kMerStr.length();
     auto endIndex = readLen - kMerLen;
-    if (pos == 0) {
-        return START_KMER;
-    } else if (pos == -1) {
-        return NOT_INCLUDE_KMER;
+    KMERPOS_t kmerpos = NOT_INCLUDE_KMER;
+    if (reversePos == pos) {
+        // 只有一个或没有kmer 的情况
+        if (pos == 0) {
+            kmerpos |= START_KMER;
+        } else if (pos == -1) {
+            kmerpos |= NOT_INCLUDE_KMER;
+        } else {
+            if (pos == endIndex) kmerpos |= END_KMER;
+            else kmerpos |= INCLUDE_KMER;
+        }
     } else {
-        if (pos == endIndex) return END_KMER;
-        else return INCLUDE_KMER;
+        // 有两个或以上匹配的kmer
+        // 判断头部匹配的kmer在哪
+        if (pos == 0) {
+            kmerpos |= START_KMER;
+        } else {
+            kmerpos |= INCLUDE_KMER;
+        }
+        // 判断尾部匹配的kmer在哪
+        if (reversePos == endIndex) {
+            kmerpos |= END_KMER;
+        } else {
+            kmerpos |= INCLUDE_KMER;
+        }
+
+        // 如果还有第三个kmer在一头一尾的两个kmer之间，这说明kmer还处以该read 的中间
+        auto midpos = readStr.substr(pos+kMerLen, reversePos-pos-kMerLen).find(kMerStr);
+        if (midpos != -1)
+            kmerpos |= INCLUDE_KMER;
     }
+    return kmerpos;
 }

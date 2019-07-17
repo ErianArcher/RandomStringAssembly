@@ -10,10 +10,10 @@
 #include <unordered_map>
 
 // Some constants for KMERPOS_t
-#define NOT_INCLUDE_KMER -1
-#define START_KMER 0
-#define INCLUDE_KMER 1
-#define END_KMER 2
+#define NOT_INCLUDE_KMER 0
+#define START_KMER 1
+#define INCLUDE_KMER 2
+#define END_KMER 4
 
 // Some constants for ALTERPOS_t
 #define ALTER_HEAD 1
