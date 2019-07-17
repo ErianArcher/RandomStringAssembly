@@ -8,11 +8,11 @@
 
 using namespace std;
 
-int addVertex(VertexList &vList, char *value, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode mode) {
+int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode) {
     string idStr(value);
     VertexId vId = hash<string>()(idStr);
-    if (vList.find(vId) == vList.end()) { // This vertex does not exist.
-        Vertex *v = nullptr;
+    Vertex *v = nullptr;
+    if (vList->find(vId) == vList->end()) { // This vertex does not exist.
         v = new Vertex;
         if (nullptr == v) {
             cerr << "Error occurs when adding vertex #" << vId << ": Out of memory.\n";
@@ -20,18 +20,19 @@ int addVertex(VertexList &vList, char *value, const EdgeId inKMerId, const EdgeI
         }
         v->id = vId;
 
-        // Copy value
+        // 不需要存value
+        /*// Copy value
         int valueLen = strlen(value);
-        v->value = nullptr;
+        //v->value = nullptr;
         v->value = new char[valueLen];
         if (nullptr == v->value) {
             cerr << "Error occurs when adding vertex #" << vId << ": Out of memory.\n";
             return 0;
         }
-        strcpy(v->value, value); // coping
+        strcpy(v->value, value); // coping*/
 
         // Initial inKMer ID set
-        v->inKMer = nullptr;
+        //v->inKMer = nullptr;
         v->inKMer = new SetOfID;
         if (nullptr == v->inKMer) {
             cerr << "Error occurs when adding vertex #" << vId << ": Out of memory.\n";
@@ -39,7 +40,7 @@ int addVertex(VertexList &vList, char *value, const EdgeId inKMerId, const EdgeI
         }
 
         // Initial inKMer ID set
-        v->outKMer = nullptr;
+        //v->outKMer = nullptr;
         v->outKMer = new SetOfID;
         if (nullptr == v->outKMer) {
             cerr << "Error occurs when adding vertex #" << vId << ": Out of memory.\n";
@@ -71,45 +72,43 @@ int addVertex(VertexList &vList, char *value, const EdgeId inKMerId, const EdgeI
         }
 
         // Insert into vertex list
-        vList[vId] = v;
-        if (vList.find(vId) == vList.end()) {
+        vList->insert(make_pair(vId, v));
+
+        if (vList->find(vId) == vList->end()) {
             cerr << "Error occurs when adding vertex #" << vId << ".\n";
             freeVertex(v);
             return 0;
         }
-        delete value;
-        return 1;
+
     } else { // This vertex exists.
-        Vertex *curVertex = vList[vId];
+        v = vList->at(vId);
         if (HEAD_VERTEX == (mode & HEAD_VERTEX)) {
-            curVertex->inKMer->insert(inKMerId);
-            curVertex->inDegree++;
-            if (curVertex->inKMer->size() != curVertex->inDegree) {
+            v->inKMer->insert(inKMerId);
+            v->inDegree++;
+            if (v->inKMer->size() != v->inDegree) {
                 cerr << "Error occurs when adding vertex #" << vId << ".\n";
-                curVertex->inDegree--;
+                v->inDegree--;
                 delete value;
                 return 0;
             }
         }
 
         if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
-            curVertex->outKMer->insert(outKMerId);
-            curVertex->outDegree++;
-            if (curVertex->outKMer->size() != curVertex->outDegree) {
+            v->outKMer->insert(outKMerId);
+            v->outDegree++;
+            if (v->outKMer->size() != v->outDegree) {
                 cerr << "Error occurs when adding vertex #" << vId << ".\n";
-                curVertex->outDegree--;
+                v->outDegree--;
                 delete value;
                 return 0;
             }
         }
-
-        // Free these extra sets and value.
-        delete value;
-        if (curVertex->outDegree > 1 && curVertex->inDegree > 1) return MULTI_BOTH_DEGREE;
-        if (curVertex->inDegree > 1) return MULTI_IN_DEGREE;
-        if (curVertex->outDegree > 1) return MULTI_OUT_DEGREE;
-        return 1;
     }
+    delete value;
+    if (v->outDegree > 1 && v->inDegree > 1) return MULTI_BOTH_DEGREE;
+    if (v->inDegree > 1) return MULTI_IN_DEGREE;
+    if (v->outDegree > 1) return MULTI_OUT_DEGREE;
+    return 1;
 }
 
 int removeVertex(VertexList *vList, const VertexId vId) {
@@ -207,10 +206,10 @@ int freeVertex(Vertex *pVertex) {
 }
 
 kMinusMer::~kMinusMer() {
-    if (nullptr != value) {
+    /*if (nullptr != value) {
         delete value;
         value = nullptr;
-    }
+    }*/
     if (nullptr != inKMer) {
         delete inKMer;
         inKMer = nullptr;
@@ -219,4 +218,13 @@ kMinusMer::~kMinusMer() {
         delete outKMer;
         outKMer = nullptr;
     }
+}
+
+kMinusMer::kMinusMer() {
+    id = 0;
+    //value = nullptr;
+    inKMer = nullptr;
+    outKMer = nullptr;
+    inDegree = 0;
+    outDegree = 0;
 }
