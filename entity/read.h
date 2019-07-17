@@ -10,14 +10,14 @@
 #include <unordered_map>
 
 // Some constants for KMERPOS_t
-#define NOT_INCLUDE_KMER 0
-#define START_KMER 1
-#define INCLUDE_KMER 2
-#define END_KMER 4
+#define NOT_INCLUDE_KMER 0u
+#define START_KMER 1u
+#define INCLUDE_KMER 2u
+#define END_KMER 4u
 
 // Some constants for ALTERPOS_t
-#define ALTER_HEAD 1
-#define ALTER_TAIL 2
+#define ALTER_HEAD 1u
+#define ALTER_TAIL 2u
 #define ALTER_BOTH (ALTER_TAIL | ALTER_HEAD)
 
 // The directory to store reads by id
@@ -25,19 +25,19 @@
 
 using namespace std;
 
-typedef size_t ReadId_t;
+typedef size_t ReadId;
 
-typedef int KMERPOS_t;
+typedef unsigned int KMERPOS_t;
 
-typedef int ALTERPOS_t;
+typedef unsigned int ALTERPOS_t;
 
-int createRead(string read, ReadId_t &readId);
+int createRead(string read, ReadId &readId);
 
-int getRead(string &oread, ReadId_t readId);
+int getRead(string &oread, ReadId readId);
 
-int enlargeRead(string newRead, int increasedLength, ReadId_t readId, ALTERPOS_t alterationPos);
+int enlargeRead(string newRead, int increasedLength, ReadId readId, ALTERPOS_t alterationPos);
 
-int cutRead(string newRead, int increasedLength, ReadId_t readId, ALTERPOS_t alterationPos);
+int cutRead(string newRead, int increasedLength, ReadId readId, ALTERPOS_t alterationPos);
 
 /**
  * Check if the kMer is in this read, and if so then return its blurred position in the read.

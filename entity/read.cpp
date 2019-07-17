@@ -13,7 +13,7 @@ extern int errno;
 
 using namespace std;
 
-int createRead(string read, ReadId_t &readId) {
+int createRead(string read, ReadId &readId) {
     readId = hash<string>()(read);
     stringstream ofile;
     ofile << READ_DIR << readId;
@@ -33,7 +33,7 @@ int createRead(string read, ReadId_t &readId) {
     return 1;
 }
 
-int getRead(string &oread, ReadId_t readId) {
+int getRead(string &oread, ReadId readId) {
     stringstream ifile;
     ifile << READ_DIR << readId;
     ifstream infstream;
@@ -52,7 +52,7 @@ int getRead(string &oread, ReadId_t readId) {
     return 1;
 }
 
-int enlargeRead(string newRead, int increasedLength, ReadId_t readId, ALTERPOS_t alterationPos) {
+int enlargeRead(string newRead, int increasedLength, ReadId readId, ALTERPOS_t alterationPos) {
     stringstream afile;
     afile << READ_DIR << readId;
     ofstream alterfstream;
@@ -84,7 +84,7 @@ int enlargeRead(string newRead, int increasedLength, ReadId_t readId, ALTERPOS_t
     return 1;
 }
 
-int cutRead(string newRead, int deleteLength, ReadId_t readId, ALTERPOS_t alterationPos) {
+int cutRead(string newRead, int deleteLength, ReadId readId, ALTERPOS_t alterationPos) {
     // 不管什么方法都重写文件
     stringstream afile;
     afile << READ_DIR << readId;
