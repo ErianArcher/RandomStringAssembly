@@ -170,8 +170,8 @@ int addNewZEdge(EdgeList *eList, char *value, char *additionValue, VertexId sour
 
 int copyPathSetToEdge(Edge *e, SetOfID *pathSet) {
     int count = 0;
-    for (auto itr = pathSet->begin(); itr != pathSet->end(); ++itr) {
-        e->endHerePathSet->insert(*itr);
+    for (unsigned long itr : *pathSet) {
+        e->endHerePathSet->insert(itr);
         count++;
     }
     return count;
