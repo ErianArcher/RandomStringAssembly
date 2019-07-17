@@ -18,7 +18,7 @@
 // Some constants for ALTERPOS_t
 #define ALTER_HEAD 1
 #define ALTER_TAIL 2
-#define ALTER_BOTH ALTER_TAIL | ALTER_HEAD
+#define ALTER_BOTH (ALTER_TAIL | ALTER_HEAD)
 
 // The directory to store reads by id
 #define READ_DIR "./reads/"
