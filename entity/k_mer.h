@@ -8,7 +8,6 @@
 
 #include "idset.h"
 #include "read.h"
-#include "k_minus_mer.h"
 #include <unordered_map>
 
 struct kMer {
@@ -32,7 +31,6 @@ struct kMer {
 
 typedef struct kMer Edge;
 typedef struct kMer KMer;
-typedef size_t EdgeId;
 typedef std::unordered_map<EdgeId , Edge *> EdgeList;
 typedef EdgeList KMerList;
 

@@ -6,7 +6,6 @@
 #define RANDOMSTRINGASSEMBLY_K_MINUS_MER_H
 
 #include "idset.h"
-#include "k_mer.h"
 #include <unordered_map>
 
 // Constants for VertexMode_t
@@ -34,7 +33,6 @@ struct kMinusMer {
 
 typedef struct kMinusMer Vertex;
 typedef struct kMinusMer KMinusMer;
-typedef size_t VertexId;
 typedef std::unordered_map<VertexId, Vertex *> VertexList;
 
 typedef unsigned int VertexMode_t;
