@@ -12,6 +12,7 @@
 #define HEAD_VERTEX 1u
 #define TAIL_VERTEX 2u
 #define IN_VERTEX (HEAD_VERTEX | TAIL_VERTEX)
+#define ISOLATE_VERTEX (~IN_VERTEX)
 
 // Constants for return types of `addVertex`.
 #define MULTI_OUT_DEGREE 2u
@@ -39,6 +40,8 @@ typedef unsigned int VertexMode_t;
 //typedef int VertexAddReturn_t;
 
 int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode);
+
+int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode);
 
 int removeVertex(VertexList *vList, const VertexId vId);
 

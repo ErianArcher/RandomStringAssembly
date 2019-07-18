@@ -3,6 +3,7 @@
 #include <sstream>
 #include "entity/idset.h"
 #include "entity/read.h"
+#include "entity/k_minus_mer.h"
 
 using namespace std;
 
@@ -56,25 +57,25 @@ void readTest() {
                       "abcjfoaihjgoigoreabcbug", "abcvgnedfaiosngjogrenbfoijgbnv", "fioeawrhgophnoarhgouiabc",
                       "goierahabcfreoiaghoi"};
     int len = 7;
-    SetOfID *readIds = new SetOfID;
+    ReadId *readIds = new ReadId[len];
     for (int i = 0; i < len; ++i) {
         ReadId *readId = new ReadId;
         createRead(reads[i], readId);
-        readIds->insert(*readId);
+        readIds[i] = *readId;
         delete readId;
     }
 
     cout << "Test getRead:" << endl;
     string *oread = new string;
-    for (auto readId : *readIds) {
-        getRead(oread, readId);
-        cout << "Read id #" << readId << ": " << *oread << endl;
+    for (int i = 0; i < len; ++i) {
+        getRead(oread, readIds[i]);
+        cout << "Read id #" << readIds[i] << ": " << *oread << endl;
     }
 
     cout << "Test read alteration:" << endl;
     int alteredLen = 1;
     int no = 0;
-    int alteredReadId = *readIds->begin();
+    ReadId alteredReadId = readIds[no];
     stringstream ss;
     ss << "b" << reads[no];
     enlargeRead(ss.str(), alteredLen, alteredReadId, ALTER_HEAD);
@@ -135,6 +136,59 @@ void readTest() {
     delete readIds;
 }
 
+string vertexToString(Vertex *v) {
+    stringstream sstream;
+    sstream << "{";
+    sstream << "VertexId: " << v->id << ", ";
+    sstream << "InEdges:(" << v->inDegree << ") " << setToString(v->inKMer) << ", ";
+    sstream << "OutEdges:(" << v->outDegree << ") " << setToString(v->outKMer) << "";
+    sstream << "}";
+    return sstream.str();
+}
+
+void vertexTest() {
+    VertexList *vertexList = new VertexList;
+    EdgeId eids[] = {1, 2, 3, 4};
+    VertexId *vIds = new VertexId[4];
+    char *kMinusMers[] = {"hello", "world", "erian", "isolation"};
+    addVertex(vertexList, kMinusMers[0], (EdgeId) 0, eids[0], HEAD_VERTEX);
+    if (addVertex(vertexList, kMinusMers[0], (EdgeId) 0, eids[3], HEAD_VERTEX) != MULTI_OUT_DEGREE)
+        cout << "Multi out degree fails" << endl;
+    addVertex(vertexList, kMinusMers[1], eids[2], eids[3], IN_VERTEX);
+    if (addVertex(vertexList, kMinusMers[1], eids[0], eids[1], IN_VERTEX) != MULTI_BOTH_DEGREE)
+        cout << "Multi both degree fails" << endl;
+    addVertex(vertexList, kMinusMers[2], eids[1], (EdgeId) 0, TAIL_VERTEX);
+    if (addVertex(vertexList, kMinusMers[2], eids[0], (EdgeId) 0, TAIL_VERTEX) != MULTI_IN_DEGREE)
+        cout << "Multi in degree fails" << endl;
+    addVertex(vertexList, kMinusMers[3], &vIds[3], (EdgeId) 0, (EdgeId) 0, ISOLATE_VERTEX);
+    for (int i = 0; i < 4; ++i) {
+        VertexId vId = hash<string>()(kMinusMers[i]);
+        if (i == 3 && vId != vIds[i]) cout << "Error in addVertex() for fetching vertex id." << endl;
+        vIds[i] = vId;
+        cout << vertexToString(vertexList->at(vId)) << endl;
+    }
+
+    cout << "=============================" << endl;
+    Vertex *op = vertexList->at(vIds[3]);
+    addInEdge(vertexList, vIds[3], eids[0]);
+    cout << vertexToString(op) << endl;
+    removeInEdge(vertexList, vIds[3], eids[0]);
+    cout << vertexToString(op) << endl;
+    addOutEdge(vertexList, vIds[3], eids[0]);
+    cout << vertexToString(op) << endl;
+    removeOutEdge(vertexList, vIds[3], eids[0]);
+    cout << vertexToString(op) << endl;
+
+    cout << "=============================" << endl;
+    removeVertex(vertexList, vIds[3]);
+    for (auto kv: *vertexList) {
+        cout << vertexToString(kv.second) << endl;
+    }
+
+    delete vertexList;
+    delete vIds;
+}
+
 int main(int argc, char** argv) {
     // Initialize the MPI environment
     MPI_Init(NULL, NULL);
@@ -159,6 +213,7 @@ int main(int argc, char** argv) {
     cout << hash<string>()("hello") << "\n" << hash<string>()("hella") << "\n";
     idSetTest();
     readTest();
+    vertexTest();
 
     // Finalize the MPI environment.
     MPI_Finalize();

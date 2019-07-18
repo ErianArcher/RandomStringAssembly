@@ -8,16 +8,18 @@
 
 using namespace std;
 
+
 int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode) {
+    return addVertex(vList, value, nullptr, inKMerId, outKMerId, mode);
+}
+
+int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode) {
     string idStr(value);
     VertexId vId = hash<string>()(idStr);
     Vertex *v = nullptr;
     if (vList->find(vId) == vList->end()) { // This vertex does not exist.
         v = new Vertex;
-        if (nullptr == v) {
-            cerr << "Error occurs when adding vertex #" << vId << ": Out of memory.\n";
-            return 0;
-        }
+
         v->id = vId;
 
         // 不需要存value
@@ -48,13 +50,13 @@ int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeI
         }
 
         // Insert inKMerId
-        if (HEAD_VERTEX == (mode & HEAD_VERTEX)) {
+        if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
             v->inKMer->insert(inKMerId);
             v->inDegree = 1;
         }
 
         // Insert outKMerId
-        if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
+        if (HEAD_VERTEX == (mode & HEAD_VERTEX)) {
             v->outKMer->insert(outKMerId);
             v->outDegree = 1;
         }
@@ -82,7 +84,7 @@ int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeI
 
     } else { // This vertex exists.
         v = vList->at(vId);
-        if (HEAD_VERTEX == (mode & HEAD_VERTEX)) {
+        if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
             v->inKMer->insert(inKMerId);
             v->inDegree++;
             if (v->inKMer->size() != v->inDegree) {
@@ -93,7 +95,7 @@ int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeI
             }
         }
 
-        if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
+        if (HEAD_VERTEX == (mode & HEAD_VERTEX)) {
             v->outKMer->insert(outKMerId);
             v->outDegree++;
             if (v->outKMer->size() != v->outDegree) {
@@ -104,7 +106,13 @@ int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeI
             }
         }
     }
-    delete value;
+
+    if (nullptr != fetchedVertexId) {
+        *fetchedVertexId = vId;
+    }
+
+    // value 的内存留给用户清除
+    // delete value;
     if (v->outDegree > 1 && v->inDegree > 1) return MULTI_BOTH_DEGREE;
     if (v->inDegree > 1) return MULTI_IN_DEGREE;
     if (v->outDegree > 1) return MULTI_OUT_DEGREE;
