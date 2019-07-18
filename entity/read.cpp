@@ -17,9 +17,9 @@ extern int errno;
 using namespace std;
 
 int createRead(const string read, ReadId *readId) {
-    *readId = hash<string>()(read);
+    ReadId rId = hash<string>()(read);
     stringstream ofile;
-    ofile << READ_DIR << *readId;
+    ofile << READ_DIR << rId;
     ofstream outfstream;
     outfstream.open(ofile.str());
     if (!outfstream) {
@@ -33,6 +33,7 @@ int createRead(const string read, ReadId *readId) {
         return 0;
     }*/
     outfstream.close();
+    if (nullptr != readId) *readId = rId;
     return 1;
 }
 

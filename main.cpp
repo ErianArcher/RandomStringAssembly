@@ -134,7 +134,7 @@ void readTest() {
     }
 
     delete oread;
-    delete readIds;
+    delete[] readIds;
 }
 
 string vertexToString(Vertex *v) {
@@ -251,6 +251,14 @@ void edgeTest() {
     delete edgeList;
 }
 
+inline size_t getId(string value) {
+    return hash<string>()(value);
+}
+
+string getNextRead(int rank, int world_size, int read_num, string filepath, size_t *readpos);
+
+void requestRankToStoreRead(int currank, int tarrank, const char *filename, size_t pos);
+
 int main(int argc, char** argv) {
     // Initialize the MPI environment
     MPI_Init(NULL, NULL);
@@ -260,24 +268,74 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     // Get the rank of the process
-    int world_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    int currank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currank);
 
     // Get the name of the processor
     char processor_name[MPI_MAX_PROCESSOR_NAME];
     int name_len;
     MPI_Get_processor_name(processor_name, &name_len);
 
-    // Print off a hello world message
-    printf("Hello world from processor %s, rank %d out of %d processors\n",
-           processor_name, world_rank, world_size);
+    // Construct DBG
+    string folderPath = "./input/";
+    string currentFile = "file";
+    VertexList *vertexList = new VertexList;
+    EdgeList *edgeList = new EdgeList;
+    int k = 3;
+    int readNum = 1024 * 1024 * 1024;
+    int numToProcess = readNum / world_size;
+    int beginIndex =  currank * numToProcess;
+    int endIndex = currank+1==world_size? readNum-1: beginIndex+numToProcess-1;
+    string *curread = new string;
+    ReadId *readId = new ReadId;
+    size_t readpos;
+    char *tmpKMer = new char[k];
+    char *tmpKMinusMer1 = new char[k-1];
+    char *tmpKMinusMer2 = new char[k-1];
+    EdgeId *tmpEdgeId = new EdgeId;
+    VertexId *tmpVertexId1 = new VertexId;
+    VertexId *tmpVertexId2 = new VertexId;
+    KMERPOS_t edgeMode = NOT_INCLUDE_KMER;
+    while (!(*curread = getNextRead(currank, world_size, readNum, folderPath, &readpos)).empty()) {
+        // 传送read的文件名和文件指针到目标机器
+        int read4Rank = currank;
+        *readId = getId(*curread);
+        if ((read4Rank = *readId % world_size) != currank) {
+            // Create a thread to process
+            requestRankToStoreRead(currank, read4Rank, currentFile.c_str(), readpos);
+        } else {
+            // Create a thread to process
+            if (createRead(*curread, nullptr) == 0) {
+                cerr << "Error: Cannot create file for read \"" << *curread << "\"" << endl;
+            }
+        }
 
-    cout << hash<string>()("hello") << "\n" << hash<string>()("hella") << "\n";
-    idSetTest();
-    readTest();
-    vertexTest();
-    edgeTest();
+        // 先把全部read处理完之后再充分拍kmer和kminusmer
+        int end = curread->size()-k+1;
+        for (int i = 0; i < curread->size()-k-1; ++i) {
+            for (int j = 0; j < k; ++j) {
+                char tmp = (*curread)[i + j];
+                tmpKMer[j] = tmp;
+                if (j < k -1)
+                    tmpKMinusMer1[j] = tmp;
+                if (j > 0)
+                    tmpKMinusMer2[j] = tmp;
+            }
 
+            // 判断kmer在read的哪个位置
+            if (i == 0) edgeMode = START_KMER;
+            else if (i == end - 1) edgeMode = END_KMER;
+            else edgeMode = INCLUDE_KMER;
+
+            addVertex(vertexList, tmpKMinusMer1, tmpVertexId1, 0, 0, ISOLATE_VERTEX);
+            addVertex(vertexList, tmpKMinusMer2, tmpVertexId2, 0, 0, ISOLATE_VERTEX);
+            addNewEdge(edgeList, tmpKMer, tmpEdgeId, *tmpVertexId1, *tmpVertexId2, *readId, edgeMode);
+            addOutEdge(vertexList,*tmpVertexId1, *tmpEdgeId);
+            addInEdge(vertexList,*tmpVertexId2, *tmpEdgeId);
+        }
+    }
+    // TODO: sync kmer and kminusmer.
+    // TODO: delete the variables above.
     // Finalize the MPI environment.
     MPI_Finalize();
     return 0;
