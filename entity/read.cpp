@@ -8,15 +8,18 @@
 #include <errno.h>
 #include <iostream>
 #include <cstring>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 extern int errno;
 
 using namespace std;
 
-int createRead(string read, ReadId &readId) {
-    readId = hash<string>()(read);
+int createRead(const string read, ReadId *readId) {
+    *readId = hash<string>()(read);
     stringstream ofile;
-    ofile << READ_DIR << readId;
+    ofile << READ_DIR << *readId;
     ofstream outfstream;
     outfstream.open(ofile.str());
     if (!outfstream) {
@@ -24,16 +27,16 @@ int createRead(string read, ReadId &readId) {
         return 0;
     }
     outfstream << read;
-    if (!outfstream.good()) {
+    /*if (!outfstream.good()) {
         cerr << "File IO error: " << strerror(errno) << "\n";
         outfstream.close();
         return 0;
-    }
+    }*/
     outfstream.close();
     return 1;
 }
 
-int getRead(string &oread, ReadId readId) {
+int getRead(string *oread, ReadId readId) {
     stringstream ifile;
     ifile << READ_DIR << readId;
     ifstream infstream;
@@ -42,12 +45,12 @@ int getRead(string &oread, ReadId readId) {
         cerr << "File IO error: " << strerror(errno) << "\n";
         return 0;
     }
-    infstream >> oread;
-    if (!infstream.good()) {
+    infstream >> *oread;
+    /*if (!infstream.good()) {
         cerr << "File IO error: " << strerror(errno) << "\n";
         infstream.close();
         return 0;
-    }
+    }*/
     infstream.close();
     return 1;
 }
@@ -75,16 +78,16 @@ int enlargeRead(string newRead, int increasedLength, ReadId readId, ALTERPOS_t a
         return 0;
     }
 
-    if (!alterfstream.good()) {
+    /*if (!alterfstream.good()) {
         cerr << "File IO error: " << strerror(errno) << "\n";
         alterfstream.close();
         return 0;
-    }
+    }*/
     alterfstream.close();
     return 1;
 }
 
-int cutRead(string newRead, int deleteLength, ReadId readId, ALTERPOS_t alterationPos) {
+int cutRead(const string& newRead, int reducedLength, ReadId readId, ALTERPOS_t alterationPos) {
     // 不管什么方法都重写文件
     stringstream afile;
     afile << READ_DIR << readId;
@@ -95,16 +98,17 @@ int cutRead(string newRead, int deleteLength, ReadId readId, ALTERPOS_t alterati
         return 0;
     }
     alterfstream << newRead;
+    /*
     if (!alterfstream.good()) {
         cerr << "File IO error: " << strerror(errno) << "\n";
         alterfstream.close();
         return 0;
-    }
+    }*/
     alterfstream.close();
     return 1;
 }
 
-KMERPOS_t getKMerPositionInRead(string kMerStr, string readStr) {
+KMERPOS_t getKMerPositionInRead(const string& kMerStr, const string& readStr) {
     auto pos = readStr.find(kMerStr);
     auto reversePos = readStr.rfind(kMerStr);
     auto readLen = readStr.length();
@@ -142,4 +146,27 @@ KMERPOS_t getKMerPositionInRead(string kMerStr, string readStr) {
             kmerpos |= INCLUDE_KMER;
     }
     return kmerpos;
+}
+
+int createReadDir() {
+    string path(READ_DIR);
+    int len = path.length();
+    char *tmpPath = new char[len];
+    for (int i = 0; i < len; i++) {
+        tmpPath[i] = '\0';
+    }
+    for (int i = 0; i < len; i++) {
+        if (path[i] == '\\' || path[i] == '/') {
+            if (access(tmpPath, 0) == -1) {
+                cout << "Prompt: " << tmpPath << " doesn't exist." << endl;
+                cout << "Prompt: " << "Making directory " << tmpPath << endl;
+                if (mkdir(tmpPath, 0777) != 0) {
+                    cerr << "Error: Cannot create a directory " << tmpPath << ". " << strerror(errno) << endl;
+                    return 0;
+                }
+            }
+        }
+        tmpPath[i] = path[i];
+    }
+    return 1;
 }

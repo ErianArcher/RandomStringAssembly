@@ -3,11 +3,10 @@
 //
 
 #include <iostream>
-#include <algorithm>
 #include "idset.h"
 using namespace std;
 
-static void copySetTo(SetOfID *dest, const SetOfID *src) {
+void copySetTo(SetOfID *dest, const SetOfID *src) {
     dest->clear();
     for (auto id : *src) {
         dest->insert(id);
@@ -17,7 +16,9 @@ static void copySetTo(SetOfID *dest, const SetOfID *src) {
 SetOfID *setMinus(const SetOfID &a, const SetOfID &b) {
     SetOfID *result = nullptr;
     result = new SetOfID;
-    set_difference(a.begin(), a.end(), b.begin(), b.end(), inserter(result, result->begin()));
+    for (auto it: a) {
+        if (b.find(it) == b.end()) result->insert(it);
+    }
     return result;
 }
 
@@ -32,7 +33,11 @@ int setMinusTo(SetOfID *a, const SetOfID &b) {
 SetOfID *setUnion(const SetOfID &a, const SetOfID &b) {
     SetOfID *result = nullptr;
     result = new SetOfID;
-    set_union(a.begin(), a.end(), b.begin(), b.end(), inserter(result, result->begin()));
+
+    copySetTo(result, &a);
+    for (auto it: b) {
+        if (result->find(it) == result->end()) result->insert(it);
+    }
     return result;
 }
 
@@ -46,7 +51,9 @@ int setUnionTo(SetOfID *a, const SetOfID &b) {
 SetOfID *setIntersect(const SetOfID &a, const SetOfID &b) {
     SetOfID *result = nullptr;
     result = new SetOfID;
-    set_intersection(a.begin(), a.end(), b.begin(), b.end(), inserter(result, result->begin()));
+    for (auto it: a) {
+        if (b.find(it) != b.end()) result->insert(it);
+    }
     return result;
 }
 

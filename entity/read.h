@@ -25,19 +25,19 @@
 
 using namespace std;
 
-typedef size_t ReadId;
-
 typedef unsigned int KMERPOS_t;
 
 typedef unsigned int ALTERPOS_t;
 
-int createRead(string read, ReadId &readId);
+int createReadDir();
 
-int getRead(string &oread, ReadId readId);
+int createRead(const string read, ReadId *readId);
+
+int getRead(string *oread, ReadId readId);
 
 int enlargeRead(string newRead, int increasedLength, ReadId readId, ALTERPOS_t alterationPos);
 
-int cutRead(string newRead, int increasedLength, ReadId readId, ALTERPOS_t alterationPos);
+int cutRead(const string& newRead, int reducedLength, ReadId readId, ALTERPOS_t alterationPos);
 
 /**
  * Check if the kMer is in this read, and if so then return its blurred position in the read.
@@ -46,6 +46,6 @@ int cutRead(string newRead, int increasedLength, ReadId readId, ALTERPOS_t alter
  * @param read the structure of Read
  * @return three types of positions or not in this read
  */
-KMERPOS_t getKMerPositionInRead(string kMerStr, string readStr);
+KMERPOS_t getKMerPositionInRead(const string& kMerStr, const string& readStr);
 
 #endif //RANDOMSTRINGASSEMBLY_READ_H
