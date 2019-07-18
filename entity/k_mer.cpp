@@ -6,7 +6,7 @@
 #include <iostream>
 #include <cstring>
 
-int copyPathSetToEdge(Edge *e, SetOfID *pathSet);
+int copyPathSetToEdge(SetOfID *ePathSet, SetOfID *pathSet);
 
 Edge *fetchEdgeFromList(EdgeList *eList, EdgeId eId);
 
@@ -50,17 +50,17 @@ kMer::kMer() {
     availPassTime = 1;
 }
 
+int addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos) {
+    return addNewEdge(eList, value, nullptr, sourceVId, sinkVId, rId, kmerpos);
+}
+
 int
-addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos) {
+addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos) {
     string idStr(value);
     EdgeId eId = hash<string>()(idStr);
     Edge *e = nullptr;
     if (eList->find(eId) == eList->end()) {
         e = new Edge;
-        if (nullptr == e) {
-            cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
-            return 0;
-        }
         e->id = eId;
 
         // Copy value
@@ -111,12 +111,14 @@ addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVId, R
         e->multiplicity++;
     }
     addReadPathTo(e, rId, kmerpos);
-    delete value;
+
+    if (nullptr != fetchedEdgeId) *fetchedEdgeId = eId;
+    //delete value;
     return 1;
 }
 
-int addNewZEdge(EdgeList *eList, char *value, char *additionValue, VertexId sourceVId, VertexId sinkVId,
-                SetOfID *endHerePathSet, SetOfID *startFromHerePathSet, SetOfID *includeThisPathSet) {
+int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetchedEdgeId, VertexId sourceVId,
+                VertexId sinkVId, SetOfID *endHerePathSet, SetOfID *startFromHerePathSet, SetOfID *includeThisPathSet) {
 
     int lenValue = strlen(value);
     int lenAdditionValue = strlen(additionValue);
@@ -124,54 +126,61 @@ int addNewZEdge(EdgeList *eList, char *value, char *additionValue, VertexId sour
     strcpy(mergedValue, value);
     strcat(mergedValue, additionValue);
     string idStr(mergedValue);
-    EdgeId eId = hash<string>()(idStr);
+    EdgeId *eId = new EdgeId;
     Edge *e = nullptr;
-    if (addNewEdge(eList, mergedValue, sourceVId, sinkVId, (ReadId) 0, NOT_INCLUDE_KMER) == 0) {
-        cerr << "Error occurs when adding edge #" << eId << ".\n";
+    if (addNewEdge(eList, mergedValue, eId, sourceVId, sinkVId, (ReadId) 0, NOT_INCLUDE_KMER) == 0) {
+        cerr << "Error occurs when adding edge #" << *eId << ".\n";
         return 0;
     }
-    e = eList->at(eId);
+    e = eList->at(*eId);
     if (nullptr == e) {
-        cerr << "Error occurs when adding edge #" << eId << ": Cannot read edge from edge list.\n";
+        cerr << "Error occurs when adding edge #" << *eId << ": Cannot read edge from edge list.\n";
         return 0;
+    }
+
+    // Reconstruct value
+    if (!e->isZ) { // 只有当z边不存在的时候才做这一步
+        delete e->value; // 删除原来的value占用的内存
+        e->value = nullptr;
+        e->value = new char[lenValue];
+        if (nullptr == e->value) {
+            cerr << "Error occurs when adding edge #" << *eId << ": Out of memory.\n";
+            return 0;
+        }
+        strcpy(e->value, value);
+        // Assign additionValue to edge
+        e->additionValue = new char[lenAdditionValue];
+        if (nullptr == e->additionValue) {
+            cerr << "Error occurs when adding edge #" << *eId << ": Out of memory.\n";
+            return 0;
+        }
+        strcpy(e->additionValue, additionValue);
+        e->isZ = true;
+        e->sizeOfAdditionValue = lenAdditionValue;
     }
 
     // Reconstruct some fields.
     e->multiplicity = 0;
-    // Reconstruct value
-    e->value = nullptr;
-    e->value = new char[lenValue];
-    if (nullptr == e->value) {
-        cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
-        return 0;
-    }
-    strcpy(e->value, value);
-    // Assign additionValue to edge
-    e->additionValue = new char[lenAdditionValue];
-    if (nullptr == e->additionValue) {
-        cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
-        return 0;
-    }
-    strcpy(e->additionValue, additionValue);
-
     // Add paths to the Z edge
-    e->multiplicity += copyPathSetToEdge(e, endHerePathSet);
-    e->multiplicity += copyPathSetToEdge(e, startFromHerePathSet);
-    e->multiplicity += copyPathSetToEdge(e, includeThisPathSet);
+    e->multiplicity += setUnionTo(e->endHerePathSet, *endHerePathSet);
+    e->multiplicity += setUnionTo(e->startFromHerePathSet, *startFromHerePathSet);
+    e->multiplicity += setUnionTo(e->includeThisPathSet, *includeThisPathSet);
 
+    if (nullptr != fetchedEdgeId) *fetchedEdgeId = *eId;
     // Delete the unnecessary variables
-    delete value;
-    delete additionValue;
-    delete endHerePathSet;
-    delete startFromHerePathSet;
-    delete includeThisPathSet;
+    delete[] mergedValue;
+    //delete value;
+    //delete additionValue;
+    //delete endHerePathSet;
+    //delete startFromHerePathSet;
+    //delete includeThisPathSet;
     return 1;
 }
 
-int copyPathSetToEdge(Edge *e, SetOfID *pathSet) {
+int copyPathSetToEdge(SetOfID *ePathSet, SetOfID *pathSet) {
     int count = 0;
     for (unsigned long itr : *pathSet) {
-        e->endHerePathSet->insert(itr);
+        ePathSet->insert(itr);
         count++;
     }
     return count;

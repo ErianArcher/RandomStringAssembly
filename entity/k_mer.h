@@ -37,8 +37,10 @@ typedef EdgeList KMerList;
 
 int addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos);
 
-int addNewZEdge(EdgeList *eList, char *value, char *additionValue, VertexId sourceVId, VertexId sinkVId,
-                SetOfID *endHerePathSet, SetOfID *startFromHerePathSet, SetOfID *includeThisPathSet);
+int addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos);
+
+int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetchedEdgeId, VertexId sourceVId,
+                VertexId sinkVId, SetOfID *endHerePathSet, SetOfID *startFromHerePathSet, SetOfID *includeThisPathSet);
 
 int removeEdge(EdgeList *eList, EdgeId eId);
 

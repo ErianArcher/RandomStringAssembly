@@ -4,6 +4,7 @@
 #include "entity/idset.h"
 #include "entity/read.h"
 #include "entity/k_minus_mer.h"
+#include "entity/k_mer.h"
 
 using namespace std;
 
@@ -186,7 +187,68 @@ void vertexTest() {
     }
 
     delete vertexList;
-    delete vIds;
+    delete[] vIds;
+}
+
+string edgeToString(Edge *edge) {
+    stringstream sstream;
+    sstream << "{";
+    sstream << "EdgeId: " << edge->id << ", ";
+    sstream << "Value: " << edge->value << ", ";
+    sstream << "AddtionValue:(" << edge->isZ << ")(" << edge->sizeOfAdditionValue << ") "
+    << (edge->additionValue?edge->additionValue:"") << ", ";
+    sstream << "Connection: " << edge->sourceKMinusMerId << "->" << edge->sinkKMinusMerId << ", ";
+    sstream << "Multiplicity: " << edge->multiplicity << ", ";
+    sstream << "AvailPassTime: " << edge->availPassTime << ", ";
+    sstream << "endHerePathSet: " << setToString(edge->endHerePathSet) << ", ";
+    sstream << "startFromHerePathSet: " << setToString(edge->startFromHerePathSet) << ", ";
+    sstream << "includeThisPathSet: " << setToString(edge->includeThisPathSet);
+    return sstream.str();
+}
+
+void edgeTest() {
+    VertexId vIds[] = {1, 2, 3, 4};
+    ReadId rIds[] = {1, 2, 3, 4};
+    char *kMers[] = {"hello", "world", "erian", "multireads"};
+    EdgeList *edgeList = new EdgeList;
+    EdgeId *eIds = new EdgeId[4];
+    addNewEdge(edgeList, kMers[0], vIds[1], vIds[0], rIds[0], INCLUDE_KMER);
+    addNewEdge(edgeList, kMers[1], vIds[0], vIds[2], rIds[1], START_KMER);
+    addNewEdge(edgeList, kMers[1], vIds[0], vIds[2], rIds[2], END_KMER);
+    addNewEdge(edgeList, kMers[2], vIds[0], vIds[3], rIds[2], END_KMER);
+    addNewEdge(edgeList, kMers[3], &eIds[3], vIds[1], vIds[3], rIds[3], START_KMER | INCLUDE_KMER | END_KMER);
+
+    for (int i = 0; i < 4; ++i) {
+        EdgeId eId= hash<string>()(kMers[i]);
+        if (i == 3 && eId != eIds[i]) cout << "Error in addNewEdge() for fetching edge id." << endl;
+        eIds[i] = eId;
+        cout << edgeToString(edgeList->at(eId)) << endl;
+    }
+
+    Edge *op = edgeList->at(eIds[3]);
+    EdgeId *zeId = new EdgeId;
+    addReadPathTo(edgeList, eIds[3], rIds[1], START_KMER);
+    addNewZEdge(edgeList, op->value, "z", zeId, op->sourceKMinusMerId, vIds[2],
+                op->endHerePathSet, op->startFromHerePathSet,op->includeThisPathSet);
+    cout << edgeToString(edgeList->at(*zeId)) << endl;
+    addNewZEdge(edgeList, op->value, "z", zeId, op->sourceKMinusMerId, vIds[2],
+                op->startFromHerePathSet, op->startFromHerePathSet,op->includeThisPathSet);
+    cout << edgeToString(edgeList->at(*zeId)) << endl;
+    cout << "=======removing edge from z edge ===============" << endl;
+    removeReadPathFrom(edgeList, *zeId, rIds[1], END_KMER);
+    cout << edgeToString(edgeList->at(*zeId)) << endl;
+    removeEdge(edgeList, *zeId);
+    cout << "==================================" << endl;
+    for (auto kv : *edgeList) {
+        cout << edgeToString(kv.second) << endl;
+    }
+    reduceAvailPassTime(edgeList, eIds[3]);
+    if (!checkAvailPassTimeNonZero(edgeList, eIds[3])) cout << "1Edge #" << eIds[3] << "cannot be passed anymore." << endl;
+    increaseAvailPassTime(edgeList, eIds[3]);
+    if (!checkAvailPassTimeNonZero(edgeList, eIds[3])) cout << "2Edge #" << eIds[3] << "cannot be passed anymore." << endl;
+
+    delete[](eIds);
+    delete edgeList;
 }
 
 int main(int argc, char** argv) {
@@ -214,6 +276,7 @@ int main(int argc, char** argv) {
     idSetTest();
     readTest();
     vertexTest();
+    edgeTest();
 
     // Finalize the MPI environment.
     MPI_Finalize();
