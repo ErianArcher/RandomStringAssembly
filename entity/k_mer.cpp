@@ -5,6 +5,9 @@
 #include "k_mer.h"
 #include <iostream>
 #include <cstring>
+#include <pthread.h>
+
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int copyPathSetToEdge(SetOfID *ePathSet, SetOfID *pathSet);
 
@@ -95,7 +98,9 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
         }
 
         // Insert into edge list
+        pthread_mutex_lock(&mutex);
         eList->insert(make_pair(eId, e));
+        pthread_mutex_unlock(&mutex);
 
         if (eList->find(eId) == eList->end()) {
             cerr << "Error occurs when adding edge #" << eId << ".\n";
@@ -108,7 +113,10 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
             cerr << "Error occurs when adding edge #" << eId << ": Cannot read edge from edge list.\n";
             return 0;
         }
+
+        pthread_mutex_lock(&mutex);
         e->multiplicity++;
+        pthread_mutex_unlock(&mutex);
     }
     addReadPathTo(e, rId, kmerpos);
 
@@ -139,6 +147,7 @@ int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetch
     }
 
     // Reconstruct value
+    pthread_mutex_lock(&mutex);
     if (!e->isZ) { // 只有当z边不存在的时候才做这一步
         delete e->value; // 删除原来的value占用的内存
         e->value = nullptr;
@@ -165,6 +174,7 @@ int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetch
     e->multiplicity += setUnionTo(e->endHerePathSet, *endHerePathSet);
     e->multiplicity += setUnionTo(e->startFromHerePathSet, *startFromHerePathSet);
     e->multiplicity += setUnionTo(e->includeThisPathSet, *includeThisPathSet);
+    pthread_mutex_unlock(&mutex)
 
     if (nullptr != fetchedEdgeId) *fetchedEdgeId = *eId;
     // Delete the unnecessary variables
