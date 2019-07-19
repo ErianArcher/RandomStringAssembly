@@ -39,19 +39,23 @@ typedef std::unordered_map<VertexId, Vertex *> VertexList;
 typedef unsigned int VertexMode_t;
 //typedef int VertexAddReturn_t;
 
-int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode);
+unsigned int addVertex(VertexList *vList, char *value, EdgeId inKMerId, EdgeId outKMerId, VertexMode_t mode);
 
-int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode);
+unsigned int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId, EdgeId inKMerId,
+                       EdgeId outKMerId, VertexMode_t mode);
 
-int removeVertex(VertexList *vList, const VertexId vId);
+unsigned int addVertex(VertexList *vList, VertexId vId, EdgeId inKMerId,
+                       EdgeId outKMerId, VertexMode_t mode);
 
-int addInEdge(const VertexList *vList, const VertexId vId, const EdgeId eId);
+int removeVertex(VertexList *vList, VertexId vId);
 
-int removeInEdge(const VertexList *vList, const VertexId vId, const EdgeId eId);
+int addInEdge(const VertexList *vList, VertexId vId, EdgeId eId);
 
-int addOutEdge(const VertexList *vList, const VertexId vId, const EdgeId eId);
+int removeInEdge(const VertexList *vList, VertexId vId, EdgeId eId);
 
-int removeOutEdge(const VertexList *vList, const VertexId vId, const EdgeId eId);
+int addOutEdge(const VertexList *vList, VertexId vId, EdgeId eId);
+
+int removeOutEdge(const VertexList *vList, VertexId vId, EdgeId eId);
 
 int freeVertex(Vertex *pVertex);
 #endif //RANDOMSTRINGASSEMBLY_K_MINUS_MER_H
