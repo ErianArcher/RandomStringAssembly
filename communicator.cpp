@@ -37,10 +37,14 @@ int processRecvVertex(VertexList *vertexList, VertexId vertexId, EdgeId edgeId, 
     return 0;
 }
 
-void senderRunner() {
-
+void *senderRunner(void *arg) {
+    return nullptr;
 }
 
-void receiverRunner(VertexList *vertexList, EdgeList *edgeList, SetOfID *tangleList) {
+void *testReceiverRunner(void *arg) {
+    return nullptr;
+}
 
+void *receiverRunner(void *recvArg) {
+    return nullptr;
 }

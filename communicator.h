@@ -10,6 +10,15 @@
 #include "entity/k_minus_mer.h"
 #include "entity/k_mer.h"
 
+struct threeLists {
+    VertexList *vertexList;
+    EdgeList *edgeList;
+    SetOfID *tangleList;
+};
+
+
+typedef struct threeLists RecvArg;
+
 void requestRankToStoreRead(int currank, int tarrank, const char *filename, size_t pos);
 
 void requestOtherRanksToStoreEdge(int currank, int world_size,
@@ -27,8 +36,10 @@ int processRecvEdge(EdgeList *edgeList, char *value, ReadId readId, KMERPOS_t km
 // TODO: 记得tangle 判断
 int processRecvVertex(VertexList *vertexList, VertexId vertexId, EdgeId edgeId, VertexMode_t vertexMode);
 
-void senderRunner();
+void *senderRunner(void *arg);
 
-void receiverRunner(VertexList *vertexList, EdgeList *edgeList, SetOfID *tangleList);
+void *testReceiverRunner(void *arg);
+
+void *receiverRunner(void *recvArg);
 
 #endif //RANDOMSTRINGASSEMBLY_COMMUNICATOR_H
