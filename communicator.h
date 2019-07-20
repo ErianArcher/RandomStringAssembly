@@ -11,13 +11,27 @@
 #include "entity/k_mer.h"
 
 struct threeLists {
+    int sourceRank;
     VertexList *vertexList;
     EdgeList *edgeList;
     SetOfID *tangleList;
 };
 
-
 typedef struct threeLists RecvArg;
+
+struct item {
+    int tarRank;
+    char *pack;
+    int packSize;
+
+    item();
+
+    virtual ~item();
+};
+
+typedef struct item Item;
+
+void requestRankToDoTest(int currank, int tarrank, const char *content);
 
 void requestRankToStoreRead(int currank, int tarrank, const char *filename, size_t pos);
 
@@ -27,14 +41,12 @@ void requestOtherRanksToStoreEdge(int currank, int world_size,
 void requestOtherRanksToStoreVertex(int currank, int world_size,
                                     VertexId vertexId, EdgeId edgeId, VertexMode_t vertexMode);
 
-void requestOtherRanksToStoreTangle(int currank, int world_size, VertexId tangleId);
-
 int processRecvRead(const char *filename, size_t pos);
 
 int processRecvEdge(EdgeList *edgeList, char *value, ReadId readId, KMERPOS_t kmerpos);
 
 // TODO: 记得tangle 判断
-int processRecvVertex(VertexList *vertexList, VertexId vertexId, EdgeId edgeId, VertexMode_t vertexMode);
+int processRecvVertex(VertexList *vertexList, SetOfID *tangleList, VertexId vertexId, EdgeId edgeId, VertexMode_t vertexMode);
 
 void *senderRunner(void *arg);
 
