@@ -9,7 +9,7 @@
 
 using namespace std;
 
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t kMinusMuter = PTHREAD_MUTEX_INITIALIZER;
 
 unsigned int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode) {
     return addVertex(vList, value, nullptr, inKMerId, outKMerId, mode);
@@ -28,6 +28,7 @@ unsigned int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId
 unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
                        const EdgeId outKMerId, VertexMode_t mode) {
     Vertex *v = nullptr;
+    pthread_mutex_lock(&kMinusMuter);
     if (vList->find(vId) == vList->end()) { // This vertex does not exist.
         v = new Vertex;
 
@@ -85,9 +86,7 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
         }
 
         // Insert into vertex list
-        pthread_mutex_lock(&mutex);
         vList->insert(make_pair(vId, v));
-        pthread_mutex_unlock(&mutex);
 
         if (vList->find(vId) == vList->end()) {
             cerr << "Error occurs when adding vertex #" << vId << ".\n";
@@ -97,7 +96,6 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
 
     } else { // This vertex exists.
         v = vList->at(vId);
-        pthread_mutex_lock(&mutex);
         if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
             v->inKMer->insert(inKMerId);
             v->inDegree++;
@@ -119,9 +117,10 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
                 return 0u;
             }
         }
-        pthread_mutex_unlock(&mutex);
+
     }
 
+    pthread_mutex_unlock(&kMinusMuter);
     // value 的内存留给用户清除
     // delete value;
     if (v->outDegree > 1 && v->inDegree > 1) return MULTI_BOTH_DEGREE;
