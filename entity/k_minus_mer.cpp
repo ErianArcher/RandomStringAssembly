@@ -9,7 +9,7 @@
 
 using namespace std;
 
-static pthread_mutex_t kMinusMuter = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t kMinusMutex = PTHREAD_MUTEX_INITIALIZER;
 
 unsigned int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, const EdgeId outKMerId, VertexMode_t mode) {
     return addVertex(vList, value, nullptr, inKMerId, outKMerId, mode);
@@ -28,7 +28,7 @@ unsigned int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId
 unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
                        const EdgeId outKMerId, VertexMode_t mode) {
     Vertex *v = nullptr;
-    pthread_mutex_lock(&kMinusMuter);
+    pthread_mutex_lock(&kMinusMutex);
     if (vList->find(vId) == vList->end()) { // This vertex does not exist.
         v = new Vertex;
 
@@ -50,6 +50,7 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
         v->inKMer = new SetOfID;
         if (nullptr == v->inKMer) {
             cerr << "Error occurs when adding vertex #" << vId << ": Out of memory.\n";
+            pthread_mutex_unlock(&kMinusMutex);
             return 0;
         }
 
@@ -58,6 +59,7 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
         v->outKMer = new SetOfID;
         if (nullptr == v->outKMer) {
             cerr << "Error occurs when adding vertex #" << vId << ": Out of memory.\n";
+            pthread_mutex_unlock(&kMinusMutex);
             return 0u;
         }
 
@@ -76,12 +78,14 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
         if (v->inKMer->size() != v->inDegree) {
             cerr << "Error occurs when adding vertex #" << vId << ".\n";
             freeVertex(v);
+            pthread_mutex_unlock(&kMinusMutex);
             return 0u;
         }
 
         if (v->outKMer->size() != v->outDegree) {
             cerr << "Error occurs when adding vertex #" << vId << ".\n";
             freeVertex(v);
+            pthread_mutex_unlock(&kMinusMutex);
             return 0u;
         }
 
@@ -91,36 +95,43 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
         if (vList->find(vId) == vList->end()) {
             cerr << "Error occurs when adding vertex #" << vId << ".\n";
             freeVertex(v);
+            pthread_mutex_unlock(&kMinusMutex);
             return 0u;
         }
 
     } else { // This vertex exists.
         v = vList->at(vId);
         if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
+            if (v->inKMer->find(inKMerId) == v->inKMer->end()) {
+                v->inDegree++;
+            }
             v->inKMer->insert(inKMerId);
-            v->inDegree++;
             if (v->inKMer->size() != v->inDegree) {
                 cerr << "Error occurs when adding vertex #" << vId << ".\n";
                 v->inDegree--;
                 // delete value;
+                pthread_mutex_unlock(&kMinusMutex);
                 return 0u;
             }
         }
 
         if (HEAD_VERTEX == (mode & HEAD_VERTEX)) {
+            if (v->outKMer->find(outKMerId) == v->outKMer->end()) {
+                v->outDegree++;
+            }
             v->outKMer->insert(outKMerId);
-            v->outDegree++;
             if (v->outKMer->size() != v->outDegree) {
                 cerr << "Error occurs when adding vertex #" << vId << ".\n";
                 v->outDegree--;
                 // delete value;
+                pthread_mutex_unlock(&kMinusMutex);
                 return 0u;
             }
         }
 
     }
 
-    pthread_mutex_unlock(&kMinusMuter);
+    pthread_mutex_unlock(&kMinusMutex);
     // value 的内存留给用户清除
     // delete value;
     if (v->outDegree > 1 && v->inDegree > 1) return MULTI_BOTH_DEGREE;

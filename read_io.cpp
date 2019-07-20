@@ -53,7 +53,10 @@ int readIOInit(int currank, int world_size, string filepath, string *filenames, 
         return -1;
     }
     while (moveToNext() == -1);
-    if (curIndex4Fnames + 1 >= fileAmount) return -1;
+    if (curIndex4Fnames > fileAmount) return -1;
+    if (createReadDir() == 0) {
+        exit(1);
+    }
     return 0;
 }
 

@@ -13,7 +13,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
-#define BUFFER_SIZE 256
+#define BUFFER_SIZE 128
 
 using namespace std;
 
@@ -95,6 +95,9 @@ void requestOtherRanksToStoreEdge(int currank, int world_size, const char *value
     MPI_Pack(&readId, 1, my_MPI_SIZE_T, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
     MPI_Pack(&kmerpos, 1, MPI_UNSIGNED, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
 
+    // DEBUG
+    //MPI_Send(&packSize, 1, MPI_INT, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
+    //MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
     item->tarRank = tarrank;
     item->pack = buf;
     item->packSize = packSize;
@@ -106,10 +109,10 @@ void
 requestOtherRanksToStoreVertex(int currank, int world_size, VertexId vertexId, EdgeId edgeId, VertexMode_t vertexMode) {
     char *buf = new char[BUFFER_SIZE];
     int packSize = 0;
-    int op = EDGE_STORE_OP;
-    int tarrank = edgeId % world_size;
+    int op = VERTEX_STORE_OP;
+    int tarrank = vertexId % world_size;
     if (tarrank == currank) {
-        cerr << "Putting a edge belonging to this host to other hosts." << endl;
+        cerr << "Putting a vertex belonging to this host to other hosts." << endl;
         return;
     }
     Item *item = new Item;
@@ -117,6 +120,10 @@ requestOtherRanksToStoreVertex(int currank, int world_size, VertexId vertexId, E
     MPI_Pack(&vertexId, 1, my_MPI_SIZE_T, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
     MPI_Pack(&edgeId, 1, my_MPI_SIZE_T, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
     MPI_Pack(&vertexMode, 1, MPI_UNSIGNED, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
+
+    // DEBUG
+    //MPI_Send(&packSize, 1, MPI_INT, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
+    //MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
 
     item->tarRank = tarrank;
     item->pack = buf;
@@ -132,6 +139,7 @@ int processRecvRead(const char *filename, size_t pos) {
     infile.seekg(pos);
     getline(infile, read);
     infile.close();
+    delete filename;
     if (requestWriteRead(read) == 0) return 0;
     return 1;
 }
@@ -139,9 +147,12 @@ int processRecvRead(const char *filename, size_t pos) {
 // 该方法负责char *指针的delete
 int processRecvEdge(EdgeList *edgeList, char *value, ReadId readId, KMERPOS_t kmerpos) {
     string strValue(value);
+
     VertexId sourceVertex = getId(strValue.substr(0, strValue.size()-1));
     VertexId sinkVertex = getId(strValue.substr(1, strValue.size()-1));
-    return addNewEdge(edgeList, value, sourceVertex, sinkVertex, readId, kmerpos);
+    int flag = addNewEdge(edgeList, value, sourceVertex, sinkVertex, readId, kmerpos);
+    delete value;
+    return flag;
 }
 
 int processRecvVertex(VertexList *vertexList, SetOfID *tangleList, VertexId vertexId, EdgeId edgeId, VertexMode_t vertexMode) {
@@ -151,9 +162,9 @@ int processRecvVertex(VertexList *vertexList, SetOfID *tangleList, VertexId vert
     else if (TAIL_VERTEX == vertexMode)
         flag = addVertex(vertexList, vertexId, edgeId, 0, vertexMode);
 
-    if (MULTI_OUT_DEGREE == (flag & MULTI_OUT_DEGREE))
+    if (MULTI_OUT_DEGREE == (flag & MULTI_OUT_DEGREE)) {
         tangleList->safe_insert(vertexId);
-
+    }
     return flag;
 }
 
@@ -163,7 +174,6 @@ void *senderRunner(void *arg) {
     int tarRank;
     char *pack = nullptr;
     int packSize = 0;
-    MPI_Request req;
     MPI_Comm_rank(MPI_COMM_WORLD, &thisRank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     int tag;
@@ -175,9 +185,9 @@ void *senderRunner(void *arg) {
         packSize = item->packSize;
         tag = TAG(thisRank, tarRank);
         if (nullptr != pack) {
-            //cout << "Sender " << thisRank << endl;
-            MPI_Isend(&packSize, 1, MPI_INT, tarRank, tag, MPI_COMM_WORLD, &req);
-            MPI_Isend(pack, packSize, MPI_PACKED, tarRank, tag, MPI_COMM_WORLD, &req);
+            // 直接使用宏定义来代替packSize，以使用多个sender。
+            //MPI_Send(&packSize, 1, MPI_INT, tarRank, tag, MPI_COMM_WORLD);
+            MPI_Send(pack, packSize, MPI_PACKED, tarRank, tag, MPI_COMM_WORLD);
         }
         delete item;
         item = nullptr;
@@ -212,7 +222,7 @@ void *receiverRunner(void *args) {
     int thisRank;
     int sourceRank = recvArg->sourceRank;
     char *pack = nullptr;
-    int packSize = 0;
+    int packSize = BUFFER_SIZE;
     MPI_Comm_rank(MPI_COMM_WORLD, &thisRank);
     int tag = TAG(sourceRank, thisRank);
     MPI_Status status;
@@ -220,49 +230,51 @@ void *receiverRunner(void *args) {
         // Store op type
         int op = DONOTHIN_OP;
         int position = 0;
-        int op_prefix = op / 10;
+        int op_prefix;
 
-        // cout << "recevier" << thisRank << "start." << endl;
-        MPI_Recv(&packSize, 1, MPI_INT, sourceRank, tag, MPI_COMM_WORLD, &status);
+        //MPI_Recv(&packSize, 1, MPI_INT, sourceRank, tag, MPI_COMM_WORLD, &status);
         pack = new char[packSize];
-        MPI_Recv(pack, packSize, MPI_INT, sourceRank, tag, MPI_COMM_WORLD, &status);
-        // cout << "Content:(" << packSize << ")" <<  string(pack) << endl;
+        MPI_Recv(pack, packSize, MPI_PACKED, sourceRank, tag, MPI_COMM_WORLD, &status);
 
-        MPI_Unpack(pack, 1, &position, &op, 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Unpack(pack, packSize, &position, &op, 1, MPI_INT, MPI_COMM_WORLD);
+        op_prefix = op / 10;
         if (DONOTHIN_OP == op) {
             // Do nothing
         } else if (PREFIX_READ_OP == op_prefix) {
             int strLen = 0;
             char *str = nullptr;
-            MPI_Unpack(pack, 1, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
+            MPI_Unpack(pack, packSize, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
             str = new char[strLen];
-            MPI_Unpack(pack, strLen, &position, str, strLen, MPI_CHAR, MPI_COMM_WORLD);
+            MPI_Unpack(pack, packSize, &position, str, strLen, MPI_CHAR, MPI_COMM_WORLD);
             if (READ_STORE_OP == op) {
                 size_t pos = 0;
-                MPI_Unpack(pack, strLen, &position, &pos, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
+                MPI_Unpack(pack, packSize, &position, &pos, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
                 processRecvRead(str, pos);
             }
         } else if (PREFIX_EDGE_OP == op_prefix) {
             int strLen = 0;
             char *kmer = nullptr;
             ReadId readId;
-            MPI_Unpack(pack, 1, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
+            MPI_Unpack(pack, packSize, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
             kmer = new char[strLen];
-            MPI_Unpack(pack, strLen, &position, kmer, strLen, MPI_CHAR, MPI_COMM_WORLD);
-            MPI_Unpack(pack, 1, &position, &readId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
+            if (strLen != 3) {
+                cout << "Trasmission error: " << strLen << endl;
+            }
+            MPI_Unpack(pack, packSize, &position, kmer, strLen, MPI_CHAR, MPI_COMM_WORLD);
+            MPI_Unpack(pack, packSize, &position, &readId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
             if (EDGE_STORE_OP == op) {
                 KMERPOS_t kmerpos;
-                MPI_Unpack(pack, 1, &position, &kmerpos, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
+                MPI_Unpack(pack, packSize, &position, &kmerpos, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
                 processRecvEdge(edgeList, kmer, readId, kmerpos);
             }
         } else if (PREFIX_VERTEX_OP == op_prefix) {
             VertexId vertexId;
             EdgeId edgeId;
-            MPI_Unpack(pack, 1, &position, &vertexId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
-            MPI_Unpack(pack, 1, &position, &edgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
+            MPI_Unpack(pack, packSize, &position, &vertexId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
+            MPI_Unpack(pack, packSize, &position, &edgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
             if (VERTEX_STORE_OP == op) {
                 VertexMode_t vertexMode;
-                MPI_Unpack(pack, 1, &position, &vertexMode, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
+                MPI_Unpack(pack, packSize, &position, &vertexMode, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
                 processRecvVertex(vertexList, tangleList, vertexId, edgeId, vertexMode);
             }
         }

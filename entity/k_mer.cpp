@@ -72,6 +72,7 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
         e->value = new char[valueLen];
         if (nullptr == e->value) {
             cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
+            pthread_mutex_unlock(&kmerMutex);
             return 0;
         }
         strcpy(e->value, value);
@@ -83,18 +84,21 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
         e->endHerePathSet = new SetOfID;
         if (nullptr == e->endHerePathSet) {
             cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
+            pthread_mutex_unlock(&kmerMutex);
             return 0;
         }
 
         e->startFromHerePathSet = new SetOfID;
         if (nullptr == e->startFromHerePathSet) {
             cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
+            pthread_mutex_unlock(&kmerMutex);
             return 0;
         }
 
         e->includeThisPathSet = new SetOfID;
         if (nullptr == e->includeThisPathSet) {
             cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
+            pthread_mutex_unlock(&kmerMutex);
             return 0;
         }
 
@@ -105,12 +109,14 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
         if (eList->find(eId) == eList->end()) {
             cerr << "Error occurs when adding edge #" << eId << ".\n";
             delete e;
+            pthread_mutex_unlock(&kmerMutex);
             return 0;
         }
     } else {
         e = eList->at(eId);
         if (nullptr == e) {
             cerr << "Error occurs when adding edge #" << eId << ": Cannot read edge from edge list.\n";
+            pthread_mutex_unlock(&kmerMutex);
             return 0;
         }
 
