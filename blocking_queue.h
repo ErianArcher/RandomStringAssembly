@@ -148,7 +148,7 @@ public:
         return true;
     }
 
-    bool pop(T& item)
+    bool pop(T *item)
     {
         pthread_mutex_lock(m_mutex);
         while(m_size <= 0)
@@ -161,13 +161,13 @@ public:
         }
 
         m_front = (m_front + 1) % m_max_size;
-        item = m_array[m_front];
+        *item = m_array[m_front];
         m_size--;
         pthread_mutex_unlock(m_mutex);
         return true;
     }
 
-    bool pop(T& item, int ms_timeout)
+    bool pop(T *item, int ms_timeout)
     {
         struct timespec t = {0,0};
         struct timeval now = {0,0};
@@ -191,7 +191,7 @@ public:
         }
 
         m_front = (m_front + 1) % m_max_size;
-        item = m_array[m_front];m_size--;
+        *item = m_array[m_front];m_size--;
         pthread_mutex_unlock(m_mutex);
         return true;
     }
