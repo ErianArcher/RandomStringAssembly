@@ -9,6 +9,48 @@
 #include "entity/read.h"
 #include "entity/k_minus_mer.h"
 #include "entity/k_mer.h"
+#include <mpi.h>
+
+#if SIZE_MAX == UCHAR_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
+#elif SIZE_MAX == USHRT_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
+#elif SIZE_MAX == UINT_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED
+#elif SIZE_MAX == ULONG_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_LONG
+#elif SIZE_MAX == ULLONG_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
+#else
+#define my_MPI_SIZE_T MPI_UNSIGNED_LONG
+//#error "what is happening here?"
+#endif
+
+#define DONOTHIN_OP 0
+#define EXIT_OP 1
+#define READ_STORE_OP 11
+#define EDGE_STORE_OP 21
+#define EDGE_QUERY_OP 22
+#define EDGE_FULL_QUERY_OP 23
+#define VERTEX_STORE_OP 31
+#define VERTEX_QUERY_OP 32
+
+#define PREFIX_READ_OP 1
+#define PREFIX_EDGE_OP 2
+#define PREFIX_VERTEX_OP 3
+
+// QUERY STATUS
+#define FAILED_QUERY 0
+#define SUCCESSFUL_QUERY 1
+#define TANGLE_QUERY 31
+#define SINK_QUERY 32
+
+
+#define TAG(source, sink) (source) * 1000 + (sink)
+
+#define QUERY_PACK_SIZE 12
+// 只能容纳100个host
+#define QUERY_TAG(querySource, querySink) (querySource) * 10000 + (querySink) * 100
 
 struct threeLists {
     int sourceRank;
@@ -57,5 +99,15 @@ void *senderRunner(void *arg);
 void *testReceiverRunner(void *arg);
 
 void *receiverRunner(void *recvArg);
+
+void sendSuperContigToRankHead(int headrank, int currank, string superContig);
+
+string reduceSuperContigFromOthers(int currank, int world_size, string superContig);
+
+int queryEdgeById(string *pEdgeStr, int currank, int tarrank, EdgeId edgeId);
+
+int queryOutEdgeOfVertexById(EdgeId *pEdgeId, int currank, int tarrank, VertexId vertexId);
+
+int queryFullEdgeById(string *pString, int currank, int tarrank, EdgeId edgeId);
 
 #endif //RANDOMSTRINGASSEMBLY_COMMUNICATOR_H

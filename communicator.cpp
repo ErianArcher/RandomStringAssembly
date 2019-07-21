@@ -6,45 +6,17 @@
 #include "blocking_queue.h"
 #include "read_io.h"
 #include <string.h>
-#include <mpi.h>
 #include <stdint.h>
 #include <limits.h>
 #include <fstream>
 #include <csignal>
+#include <sstream>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
 #define BUFFER_SIZE 128
 
 using namespace std;
 
 block_queue<Item *> *blockQueue = new block_queue<Item *>(1024);
-
-#if SIZE_MAX == UCHAR_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
-#elif SIZE_MAX == USHRT_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
-#elif SIZE_MAX == UINT_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED
-#elif SIZE_MAX == ULONG_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_LONG
-#elif SIZE_MAX == ULLONG_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
-#else
-   #error "what is happening here?"
-#endif
-
-#define DONOTHIN_OP 0
-#define EXIT_OP 1
-#define READ_STORE_OP 11
-#define EDGE_STORE_OP 21
-#define VERTEX_STORE_OP 31
-
-#define PREFIX_READ_OP 1
-#define PREFIX_EDGE_OP 2
-#define PREFIX_VERTEX_OP 3
-
-#define TAG(source, sink) (source) * 1000 + (sink)
 
 #define MAIN_THREAD_RUNNING 1
 #define MAIN_THREAD_WAITING 0
@@ -74,6 +46,13 @@ void mainThreadTellFinished(int thisRank, int world_size) {
         buf = nullptr;
         packSizeStop = 0;
     }
+
+    // TODO: sender 数量大于receiver 数量时会出现阻塞现象。
+    if (1 == world_size) {
+        itemStop = new Item;
+        blockQueue->push(itemStop);
+    }
+
     mainStatus = MAIN_THREAD_WAITING;
 }
 
@@ -114,7 +93,7 @@ void requestOtherRanksToStoreEdge(int currank, int world_size, const char *value
                                   KMERPOS_t kmerpos) {
     char *buf = new char[BUFFER_SIZE];
     int packSize = 0;
-    int strLen = strlen(value);
+    int strLen = getK();
     int op = EDGE_STORE_OP;
     int tarrank = edgeId % world_size;
     if (tarrank == currank) {
@@ -236,17 +215,17 @@ void *testReceiverRunner(void *arg) {
     int thisRank;
     int sourceRank = *((int *)arg);
     char *pack = nullptr;
-    int packSize = 0;
+    int packSize = BUFFER_SIZE;
     MPI_Comm_rank(MPI_COMM_WORLD, &thisRank);
     int tag = TAG(sourceRank, thisRank);
     MPI_Status status;
     while (true) {
         cout << "recevier" << thisRank << "start." << endl;
-        MPI_Recv(&packSize, 1, MPI_INT, sourceRank, tag, MPI_COMM_WORLD, &status);
         pack = new char[packSize];
         MPI_Recv(pack, packSize, MPI_INT, sourceRank, tag, MPI_COMM_WORLD, &status);
         cout << "Content:(" << packSize << ")" <<  string(pack) << endl;
         delete[] pack;
+        break;
     }
     return (void *) 0;
 }
@@ -291,30 +270,107 @@ void *receiverRunner(void *args) {
                 processRecvRead(str, pos);
             }
         } else if (PREFIX_EDGE_OP == op_prefix) {
-            int strLen = 0;
-            char *kmer = nullptr;
-            ReadId readId;
-            MPI_Unpack(pack, packSize, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
-            kmer = new char[strLen];
-            if (strLen != 3) {
-                cout << "Trasmission error: " << strLen << endl;
-            }
-            MPI_Unpack(pack, packSize, &position, kmer, strLen, MPI_CHAR, MPI_COMM_WORLD);
-            MPI_Unpack(pack, packSize, &position, &readId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
             if (EDGE_STORE_OP == op) {
+                int strLen = 0;
+                char *kmer = nullptr;
+                ReadId readId;
+                MPI_Unpack(pack, packSize, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
+                kmer = new char[strLen];
+                if (strLen != 3) {
+                    cout << "Trasmission error: " << strLen << endl;
+                }
+                MPI_Unpack(pack, packSize, &position, kmer, strLen, MPI_CHAR, MPI_COMM_WORLD);
+                MPI_Unpack(pack, packSize, &position, &readId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
                 KMERPOS_t kmerpos;
                 MPI_Unpack(pack, packSize, &position, &kmerpos, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
                 processRecvEdge(edgeList, kmer, readId, kmerpos);
+            } else if (EDGE_QUERY_OP == op) {
+                // cout << "char edge reached" << endl;
+                char *buf = new char[QUERY_PACK_SIZE];
+                int sendMsgSize = 0;
+                EdgeId queryEdgeId;
+                //VertexId querySinkId;
+                char lastChar = '0';
+                int queryStatus = FAILED_QUERY;
+                MPI_Unpack(pack, packSize, &position, &queryEdgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
+                if (edgeList->count(queryEdgeId) == 0) {
+                    cerr << "Cannot query the edge #" << queryEdgeId << endl;
+                    queryStatus = FAILED_QUERY;
+                } else {
+                    //querySinkId = edgeList->at(queryEdgeId)->sinkKMinusMerId;
+                    lastChar = edgeList->at(queryEdgeId)->value[getK()-1];
+                    queryStatus = SUCCESSFUL_QUERY;
+                }
+                MPI_Pack(&queryStatus, 1, MPI_INT, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Pack(&lastChar, 1, MPI_CHAR, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Send(buf, sendMsgSize, MPI_PACKED, sourceRank, QUERY_TAG(sourceRank, thisRank), MPI_COMM_WORLD);
+                delete[] buf;
+            } else if (EDGE_FULL_QUERY_OP == op) {
+                // cout << "edge op received" << endl;
+                char *buf = new char[BUFFER_SIZE];
+                int sendMsgSize = 0;
+                int valueLen = getK();
+                char *value = nullptr;
+                EdgeId queryEdgeId;
+                int queryStatus = FAILED_QUERY;
+                MPI_Unpack(pack, packSize, &position, &queryEdgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
+                if (edgeList->count(queryEdgeId) == 0) {
+                    cerr << "Cannot query the edge #" << queryEdgeId << endl;
+                    queryStatus = FAILED_QUERY;
+                } else {
+                    value = edgeList->at(queryEdgeId)->value;
+                    queryStatus = SUCCESSFUL_QUERY;
+                }
+                //cout << value << endl;
+                MPI_Pack(&queryStatus, 1, MPI_INT, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Pack(value, valueLen, MPI_CHAR, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Send(buf, sendMsgSize, MPI_PACKED, sourceRank, QUERY_TAG(sourceRank, thisRank), MPI_COMM_WORLD);
+                delete[] buf;
             }
         } else if (PREFIX_VERTEX_OP == op_prefix) {
             VertexId vertexId;
             EdgeId edgeId;
             MPI_Unpack(pack, packSize, &position, &vertexId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
-            MPI_Unpack(pack, packSize, &position, &edgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
             if (VERTEX_STORE_OP == op) {
                 VertexMode_t vertexMode;
+                MPI_Unpack(pack, packSize, &position, &edgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
                 MPI_Unpack(pack, packSize, &position, &vertexMode, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
                 processRecvVertex(vertexList, tangleList, vertexId, edgeId, vertexMode);
+            } else if (VERTEX_QUERY_OP == op) {
+                // cout << "vertex op received" << endl;
+                int queryStatus = FAILED_QUERY;
+                char *buf = new char[QUERY_PACK_SIZE];
+                int sendMsgSize = 0;
+
+                if (vertexList->count(vertexId) == 0) {
+                    cerr << "Cannot query the vertex #" << vertexId << endl;
+                    queryStatus = FAILED_QUERY;
+                } else if (tangleList->count(vertexId) != 0) {
+                    queryStatus = TANGLE_QUERY;
+                    Vertex *thisVertex = vertexList->at(vertexId);
+                    edgeId = *thisVertex->outKMer->begin();
+                    // 删除vertex的一个出度
+                    removeOutEdge(vertexList, vertexId, edgeId);
+                    queryStatus = SUCCESSFUL_QUERY;
+                } else {
+                    // 不是tangle时
+                    Vertex *thisVertex = vertexList->at(vertexId);
+                    if (thisVertex->outDegree < 1) { // 当遇到sink点时
+                        cout << "Sink point is reached." << endl;
+                        queryStatus = SINK_QUERY;
+                    } else {
+                        edgeId = *thisVertex->outKMer->begin();
+                        // 删除vertex的一个出度
+                        removeOutEdge(vertexList, vertexId, edgeId);
+                        queryStatus = SUCCESSFUL_QUERY;
+                    }
+                }
+
+                // 开始pack数据
+                MPI_Pack(&queryStatus, 1, MPI_INT, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Pack(&edgeId, 1, my_MPI_SIZE_T, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Send(buf, sendMsgSize, MPI_PACKED, sourceRank, QUERY_TAG(sourceRank, thisRank), MPI_COMM_WORLD);
+                delete[] buf;
             }
         }
         delete[] pack;
@@ -335,4 +391,109 @@ item::item() {
     packSize = 0;
 }
 
-#pragma clang diagnostic pop
+// 不能与线程并行的共存
+void sendSuperContigToRankHead(int headrank, int currank, string superContig) {
+    int msgsize = superContig.size();
+    MPI_Send(&msgsize, 1, MPI_INT, headrank, TAG(currank, headrank), MPI_COMM_WORLD);
+    MPI_Send(superContig.c_str(), superContig.size(), MPI_CHAR, headrank, TAG(currank, headrank), MPI_COMM_WORLD);
+}
+
+// 不能与线程并行的共存
+string reduceSuperContigFromOthers(int currank, int world_size, string superContig) {
+    stringstream sc;
+    sc << superContig;
+    //cout << superContig;
+    char *buf = nullptr;
+    int size4buf = 0;
+    MPI_Status status;
+    for (int i = 0; i < world_size; ++i) {
+        if (i == currank) continue;
+        MPI_Recv(&size4buf, 1, MPI_INT, i, TAG(i, currank), MPI_COMM_WORLD, &status);
+        buf = new char[size4buf];
+        MPI_Recv(buf, size4buf, MPI_CHAR, i, TAG(i, currank), MPI_COMM_WORLD, &status);
+        sc << string(buf, 0, size4buf);
+        delete[] buf;
+    }
+    return sc.str();
+}
+
+int queryEdgeById(string *pEdgeStr, int currank, int tarrank, EdgeId edgeId) {
+    char *buf = new char[QUERY_PACK_SIZE];
+    char *edgeValue = new char[2];
+    int packSize = 0;
+    int position = 0;
+    int op = EDGE_QUERY_OP;
+    int queryStatus = FAILED_QUERY;
+    MPI_Status status;
+    MPI_Pack(&op, 1, MPI_INT, buf, QUERY_PACK_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Pack(&edgeId, 1, my_MPI_SIZE_T, buf, QUERY_PACK_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
+
+    delete[] buf;
+    buf = new char[QUERY_PACK_SIZE];
+
+    MPI_Recv(buf, QUERY_PACK_SIZE, MPI_PACKED, tarrank, QUERY_TAG(currank, tarrank), MPI_COMM_WORLD, &status);
+    MPI_Unpack(buf, QUERY_PACK_SIZE, &position, &queryStatus, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Unpack(buf, QUERY_PACK_SIZE, &position, edgeValue, 1, MPI_CHAR, MPI_COMM_WORLD);
+    delete[] buf;
+    edgeValue[1] = '\0'; // 以防溢出
+    // cout << edgeValue << endl;
+    // 只有不是失败才append
+    if (FAILED_QUERY != queryStatus)
+        pEdgeStr->append(edgeValue);
+    delete[] edgeValue;
+    return queryStatus;
+}
+
+int queryOutEdgeOfVertexById(EdgeId *pEdgeId, int currank, int tarrank, VertexId vertexId) {
+    char *buf = new char[QUERY_PACK_SIZE];
+    EdgeId outEdge;
+    int packSize = 0;
+    int position = 0;
+    int op = VERTEX_QUERY_OP;
+    int queryStatus = FAILED_QUERY;
+    MPI_Status status;
+    MPI_Pack(&op, 1, MPI_INT, buf, QUERY_PACK_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Pack(&vertexId, 1, my_MPI_SIZE_T, buf, QUERY_PACK_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
+
+    delete[] buf;
+    buf = new char[QUERY_PACK_SIZE];
+
+    MPI_Recv(buf, QUERY_PACK_SIZE, MPI_PACKED, tarrank, QUERY_TAG(currank, tarrank), MPI_COMM_WORLD, &status);
+    MPI_Unpack(buf, QUERY_PACK_SIZE, &position, &queryStatus, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Unpack(buf, QUERY_PACK_SIZE, &position, &outEdge, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
+
+    delete[] buf;
+    // 只有不是失败才append
+    if (FAILED_QUERY != queryStatus)
+        *pEdgeId = outEdge;
+    return queryStatus;
+}
+
+int queryFullEdgeById(string *pString, int currank, int tarrank, EdgeId edgeId) {
+    char *buf = new char[BUFFER_SIZE];
+    char *edgeValue = new char[getK() + 1];
+    int packSize = 0;
+    int position = 0;
+    int op = EDGE_FULL_QUERY_OP;
+    int queryStatus = FAILED_QUERY;
+    MPI_Status status;
+    MPI_Pack(&op, 1, MPI_INT, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Pack(&edgeId, 1, my_MPI_SIZE_T, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
+    delete[] buf;
+    buf = new char[BUFFER_SIZE];
+    MPI_Recv(buf, BUFFER_SIZE, MPI_PACKED, tarrank, QUERY_TAG(currank, tarrank), MPI_COMM_WORLD, &status);
+    MPI_Unpack(buf, BUFFER_SIZE, &position, &queryStatus, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Unpack(buf, BUFFER_SIZE, &position, edgeValue, getK(), MPI_CHAR, MPI_COMM_WORLD);
+    // cout << "debug" << endl;
+    delete[] buf;
+    edgeValue[getK()] = '\0'; // 以防溢出
+    // cout << edgeValue << endl;
+    // 只有不是失败才append
+    if (FAILED_QUERY != queryStatus)
+        pString->append(edgeValue);
+    delete[] edgeValue;
+    return queryStatus;
+}
