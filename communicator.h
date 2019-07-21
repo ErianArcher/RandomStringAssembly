@@ -31,6 +31,10 @@ struct item {
 
 typedef struct item Item;
 
+void mainThreadTellRunning();
+
+void mainThreadTellFinished(int thisRank, int world_size);
+
 void requestRankToDoTest(int currank, int tarrank, const char *content);
 
 void requestRankToStoreRead(int currank, int tarrank, const char *filename, size_t pos);

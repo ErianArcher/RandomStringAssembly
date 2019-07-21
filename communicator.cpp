@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <fstream>
+#include <csignal>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -34,6 +35,7 @@ block_queue<Item *> *blockQueue = new block_queue<Item *>(1024);
 #endif
 
 #define DONOTHIN_OP 0
+#define EXIT_OP 1
 #define READ_STORE_OP 11
 #define EDGE_STORE_OP 21
 #define VERTEX_STORE_OP 31
@@ -43,6 +45,37 @@ block_queue<Item *> *blockQueue = new block_queue<Item *>(1024);
 #define PREFIX_VERTEX_OP 3
 
 #define TAG(source, sink) (source) * 1000 + (sink)
+
+#define MAIN_THREAD_RUNNING 1
+#define MAIN_THREAD_WAITING 0
+
+static int mainStatus = MAIN_THREAD_RUNNING;
+
+void mainThreadTellRunning() {
+    mainStatus = MAIN_THREAD_RUNNING;
+}
+
+void mainThreadTellFinished(int thisRank, int world_size) {
+    Item *itemStop = nullptr;
+    int packSizeStop = 0;
+    int opStop = EXIT_OP;
+    char *buf = nullptr;
+    for (int i = 0; i < world_size; ++i) {
+        if (i == thisRank) continue;
+        itemStop = new Item;
+        buf = new char[BUFFER_SIZE];
+        MPI_Pack(&opStop, 1, MPI_INT, buf, BUFFER_SIZE, &packSizeStop, MPI_COMM_WORLD);
+        itemStop->packSize = packSizeStop;
+        itemStop->tarRank = i;
+        itemStop->pack = buf;
+        if (nullptr == blockQueue) cerr << "Cannot create blocking queue." << endl;
+        blockQueue->push(itemStop);
+        itemStop = nullptr;
+        buf = nullptr;
+        packSizeStop = 0;
+    }
+    mainStatus = MAIN_THREAD_WAITING;
+}
 
 void requestRankToDoTest(int currank, int tarrank, const char *content) {
     char *buf = new char[BUFFER_SIZE];
@@ -178,7 +211,11 @@ void *senderRunner(void *arg) {
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     int tag;
     Item *item;
+    bool terminate = false;
     while (true) {
+        // 退出sender的条件
+        if (MAIN_THREAD_WAITING == mainStatus && blockQueue->empty()) break;
+
         blockQueue->pop(&item);
         tarRank = item->tarRank;
         pack = item->pack;
@@ -240,6 +277,8 @@ void *receiverRunner(void *args) {
         op_prefix = op / 10;
         if (DONOTHIN_OP == op) {
             // Do nothing
+        } else if (EXIT_OP == op) {
+            break;
         } else if (PREFIX_READ_OP == op_prefix) {
             int strLen = 0;
             char *str = nullptr;

@@ -18,6 +18,12 @@
 
 using namespace std;
 
+void joinThreads(pthread_t tids[], int tnum, int exceptIndex = -1) {
+    for (int i = 0; i < tnum; ++i) {
+        if (i == exceptIndex) continue;
+        pthread_join(tids[i], NULL);
+    }
+}
 
 int main(int argc, char** argv) {
     // Initialize the MPI environment
@@ -70,12 +76,13 @@ int main(int argc, char** argv) {
     int sourceRank[world_size];
     RecvArg *recvArg = new RecvArg[world_size];
 
+    mainThreadTellRunning();
     for (int l = 0; l < sender_num; ++l) {
         if (pthread_create(&sender_tid[l], NULL, senderRunner, NULL) != 0) {
             cerr << "Cannot create sender thread";
             exit(1);
         }
-        pthread_detach(sender_tid[l]);
+        // pthread_detach(sender_tid[l]);
     }
 
 
@@ -93,7 +100,7 @@ int main(int argc, char** argv) {
             exit(1);
         }
         cout << "sucessful" << r;
-        pthread_detach(receiver_tid[r]);
+        // pthread_detach(receiver_tid[r]);
     }
 
     /*char content[] = "hello world";
@@ -177,8 +184,14 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::chrono::milliseconds dura(10000);
-    std::this_thread::sleep_for(dura);
+
+    // 等待线程
+    mainThreadTellFinished(currank, world_size);
+    joinThreads(sender_tid, sender_num);
+    joinThreads(receiver_tid, world_size, currank);
+
+    //std::chrono::milliseconds dura(10000);
+    //std::this_thread::sleep_for(dura);
     // DEBUG
     stringstream ss;
     ss << "./input/debug_host" << currank << ".txt";
