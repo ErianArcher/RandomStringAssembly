@@ -9,6 +9,8 @@
 
 static pthread_mutex_t kmerMutex = PTHREAD_MUTEX_INITIALIZER;
 
+int kMerLen = 0;
+
 int copyPathSetToEdge(SetOfID *ePathSet, SetOfID *pathSet);
 
 Edge *fetchEdgeFromList(EdgeList *eList, EdgeId eId);
@@ -53,6 +55,14 @@ kMer::kMer() {
     availPassTime = 1;
 }
 
+void setK(int k) {
+    kMerLen = k;
+}
+
+int getK() {
+    return kMerLen;
+}
+
 int addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos) {
     return addNewEdge(eList, value, nullptr, sourceVId, sinkVId, rId, kmerpos);
 }
@@ -68,7 +78,7 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
         e->id = eId;
 
         // Copy value
-        int valueLen = strlen(value);
+        int valueLen = getK();
         e->value = new char[valueLen];
         if (nullptr == e->value) {
             cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
@@ -135,7 +145,7 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
 int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetchedEdgeId, VertexId sourceVId,
                 VertexId sinkVId, SetOfID *endHerePathSet, SetOfID *startFromHerePathSet, SetOfID *includeThisPathSet) {
 
-    int lenValue = strlen(value);
+    int lenValue = getK();
     int lenAdditionValue = strlen(additionValue);
     char *mergedValue = new char[lenValue+lenAdditionValue];
     strcpy(mergedValue, value);
@@ -218,6 +228,7 @@ int removeEdge(EdgeList *eList, EdgeId eId) {
         cerr << "Error occurs when deleting an non-exist edge #" << eId << ".\n";
         return 0;
     }
+    delete eList->at(eId);
     eList->erase(eId);
     return 1;
 }

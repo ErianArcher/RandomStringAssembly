@@ -145,6 +145,7 @@ int removeVertex(VertexList *vList, const VertexId vId) {
         cerr << "Error occurs when deleting an non-exist vertex #" << vId << ".\n";
         return 0;
     }
+    delete vList->at(vId);
     vList->erase(vId);
     return 1;
 }
@@ -219,8 +220,10 @@ int removeOutEdge(const VertexList *vList, const VertexId vId, const EdgeId eId)
         cerr << "Error occurs when deleting an non-exist out edge #" << eId<< " of a vertex #" << vId << ".\n";
         return 0;
     }
+    pthread_mutex_lock(&kMinusMutex);
     v->outKMer->erase(eId);
     v->outDegree--;
+    pthread_mutex_unlock(&kMinusMutex);
     if (v->outKMer->size() != v->outDegree) {
         cerr << "Error occurs when removing out edge #"<< eId << "from vertex #" << vId << ".\n";
         v->outDegree++;

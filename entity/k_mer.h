@@ -34,6 +34,9 @@ typedef struct kMer KMer;
 typedef std::unordered_map<EdgeId , Edge *> EdgeList;
 typedef EdgeList KMerList;
 
+void setK(int k);
+
+int getK();
 
 int addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos);
 
