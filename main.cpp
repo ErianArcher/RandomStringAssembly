@@ -25,6 +25,32 @@ void joinThreads(pthread_t tids[], int tnum, int exceptIndex = -1) {
 }
 
 int main(int argc, char** argv) {
+    int startIndex = 0;
+    for (; startIndex < argc; ++startIndex) {
+        if (string(argv[startIndex]).find("RandomStringAssembly") != string::npos) {
+            break;
+        }
+    }
+    int realargc = argc - startIndex;
+    int k = 3;
+    string folderPath = "./input/";
+    int fileNum = 1;
+    string *filenames = new string[realargc - 3];
+    if (realargc < 4) {
+        cout << "program k inputfolder filenames..." << endl;
+    }
+
+
+    k = stoi(string(argv[startIndex + 1]));
+    folderPath = string(argv[startIndex + 2]);
+    if (*folderPath.cend() != '/') {
+        folderPath.append("/");
+    }
+
+    for (int i = 3; i < realargc; i++) {
+        filenames[i-3] = string(argv[startIndex + i]);
+    }
+
     // Initialize the MPI environment
     // Enable multithread
     int provided;
@@ -44,9 +70,6 @@ int main(int argc, char** argv) {
     MPI_Get_processor_name(processor_name, &name_len);*/
 
     // Construct DBG
-    string folderPath = "./input/";
-    int fileNum = 1;
-    string filenames[] = {string("reads")};
     VertexList *vertexList = new VertexList;
     SetOfID *tangleList = new SetOfID;
     EdgeList *edgeList = new EdgeList;
@@ -54,7 +77,7 @@ int main(int argc, char** argv) {
     /*VertexList *vertexList4Others = new VertexList;
     EdgeList *edgeList4Others = new EdgeList;
     SetOfID *tangleList4Others = new SetOfID;*/
-    int k = 3;
+
     int readNum = 1024 * 1024 * 1024;
     setK(k); // 初始化k值
 
