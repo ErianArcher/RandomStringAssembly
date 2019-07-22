@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
             cerr << "Cannot create receiver thread";
             exit(1);
         }
-        cout << "sucessful" << r;
+        // cout << "sucessful" << r;
         // pthread_detach(receiver_tid[r]);
     }
 
@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
         int totalKmerNum = curread->size()-k+1;
         int kMerNum4Each = totalKmerNum / world_size;
         int startKMer = kMerNum4Each * currank;
-        int end = currank + 1 == world_size? totalKmerNum: (startKMer + kMerNum4Each);
+        int end = (currank + 1 == world_size)? totalKmerNum: (startKMer + kMerNum4Each);
         for (int i = startKMer; i < end; ++i) {
             for (int j = 0; j < k; ++j) {
                 char tmp = (*curread)[i + j];
@@ -151,9 +151,9 @@ int main(int argc, char** argv) {
             else if (i == end - 1) edgeMode = END_KMER;
             else edgeMode = INCLUDE_KMER;
 
-            *tmpEdgeId = getId(string(tmpKMer));
-            *tmpVertexId1 = getId(string(tmpKMinusMer1));
-            *tmpVertexId2 = getId(string(tmpKMinusMer2));
+            *tmpEdgeId = getId(string(tmpKMer, 0, getK()));
+            *tmpVertexId1 = getId(string(tmpKMinusMer1, 0, getK()-1));
+            *tmpVertexId2 = getId(string(tmpKMinusMer2, 0, getK()-1));
 
             // 创建开始Vertex
             //cout << "index: " << i << "; content: " << tmpKMinusMer1 << endl;
@@ -190,8 +190,41 @@ int main(int argc, char** argv) {
     joinThreads(receiver_tid, world_size, currank);
 
 
+
+    // 在等待子线程结束之前
+    // 寻找source和sink
+    SetOfID *sourceList= new SetOfID;
+    SetOfID *sinkList= new SetOfID;
+    unordered_map<VertexId, string *> contigList;
+    stringstream superContigSS;
+    for (auto kv: *vertexList) {
+        auto vertex = kv.second;
+        if (vertex->inDegree == 0 && vertex->outDegree > 0) {
+            sourceList->insert(vertex->id);
+        }
+        if (vertex->outDegree == 0 && vertex->inDegree > 0) {
+            sinkList->insert(vertex->id);
+        }
+    }
+
+    int sourceListSize = sourceList->size();
+    int totalSourceListSize = 0;
+    int headrank = 0;
+    MPI_Reduce(&sourceListSize, &totalSourceListSize, 1, MPI_INT, MPI_SUM, headrank, MPI_COMM_WORLD);
+    // 若所有进程都没有符合条件的source，则由主节点随机选一个。
+    if (0 == totalSourceListSize) {
+        if (currank == headrank) {
+            VertexId randomVertexId = (*vertexList->begin()).second->id;
+            while (sinkList->count(randomVertexId) == 1) randomVertexId = (*vertexList->begin()).second->id;
+            sourceList->insert(randomVertexId);
+        }
+    }
+
+    /*if (headrank == currank)
+        cout << sourceList->size() << endl;*/
+
     /*
-     * 重新开启线程
+     * 重新开启线程以进行构建contig的工作
      */
     mainThreadTellRunning();
     sender_num = 1;
@@ -220,28 +253,7 @@ int main(int argc, char** argv) {
         //cout << "sucessful" << r;
         // pthread_detach(receiver_tid[r]);
     }
-    // 在等待子线程结束之前
-    // 寻找source和sink
-    SetOfID *sourceList= new SetOfID;
-    SetOfID *sinkList= new SetOfID;
-    unordered_map<VertexId, string *> contigList;
-    stringstream superContigSS;
-    for (auto kv: *vertexList) {
-        auto vertex = kv.second;
-        if (vertex->inDegree == 0 && vertex->outDegree > 0) {
-            sourceList->insert(vertex->id);
-        }
-        if (vertex->outDegree == 0 && vertex->inDegree > 0) {
-            sinkList->insert(vertex->id);
-        }
-    }
 
-    // 若空，则随机插入一个不是sink的点
-    if (sourceList->empty()) {
-        VertexId randomVertexId = (*vertexList->begin()).second->id;
-        while (sinkList->count(randomVertexId) == 1) randomVertexId = (*vertexList->begin()).second->id;
-        sourceList->insert(randomVertexId);
-    }
 
     //cout << "debug" << endl;
     // 遍历所有的source点
@@ -267,7 +279,7 @@ int main(int argc, char** argv) {
             //cout << edgeValue.substr(1, getK() - 1) << endl;
         } else {
             if (edgeList->count(nextEdgeId) < 1) {
-                cout << "debug3" << endl;
+                //cout << "debug3" << endl;
                 continue;
             }
             tmp = edgeList->at(nextEdgeId);
@@ -291,17 +303,19 @@ int main(int argc, char** argv) {
                 if (vertexList->count(nextVertexId) == 0) {
                     cerr << "Cannot query the vertex #" << nextVertexId << endl;
                     break;
-                } else if (tangleList->count(nextVertexId) != 0) {
-                    Vertex *thisVertex = vertexList->at(nextVertexId);
-                    nextEdgeId = *thisVertex->outKMer->begin();
-                    // 删除vertex的一个出度
-                    removeOutEdge(vertexList, nextVertexId, nextEdgeId);
                 } else {
                     // 不是tangle时
                     Vertex *thisVertex = vertexList->at(nextVertexId);
                     if (thisVertex->outDegree < 1) { // 当遇到sink点时
                         cout << "Sink point is reached." << endl;
                         break;
+                    } else if(thisVertex->outDegree > 1) {
+                        // tangle被检测到
+                        // 并行环境下不能使用tangleList->count(vertexId) != 0来判断是否为tangle
+                        Vertex *thisVertex = vertexList->at(nextVertexId);
+                        nextEdgeId = *thisVertex->outKMer->begin();
+                        // 删除vertex的一个出度
+                        removeOutEdge(vertexList, nextVertexId, nextEdgeId);
                     } else {
                         nextEdgeId = *thisVertex->outKMer->begin();
                         removeOutEdge(vertexList, nextVertexId, nextEdgeId);
@@ -315,7 +329,7 @@ int main(int argc, char** argv) {
             if (edgeInRank != currank) { // edge不在这个机器上
                 if (FAILED_QUERY == queryEdgeById(tmpEdge, currank, edgeInRank, nextEdgeId)) {
                     delete tmpEdge;
-                    cout << "debug1" << endl;
+                    //cout << "debug1" << endl;
                     break;
                 }
                 //cout << "debug2" << endl;
@@ -325,7 +339,7 @@ int main(int argc, char** argv) {
             } else {
                 if (edgeList->count(nextEdgeId) < 1) {
                     delete tmpEdge;
-                    cout << "debug2" << endl;
+                    //cout << "debug2" << endl;
                     break;
                 }
                 tmp = edgeList->at(nextEdgeId);
@@ -348,6 +362,9 @@ int main(int argc, char** argv) {
     }
 
     contigList.clear();
+
+    // 进程间同步
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // 主线程结束操作
     // 等待线程
@@ -375,7 +392,7 @@ int main(int argc, char** argv) {
         outfile << v << endl;
     }
 
-    cout << "reached" << endl;
+    //cout << "reached" << endl;
 
     // 同步各rank的super contig
     string superContig;
@@ -386,9 +403,9 @@ int main(int argc, char** argv) {
         sendSuperContigToRankHead(0, currank, superContigSS.str());
     }
 
-    cout << "reached2" << endl;
+    //cout << "reached2" << endl;
     //pthread_join(sender_tid, NULL);
-    // TODO: delete the variables above.
+    // !~delete the variables above.
     delete[] recvArg;
 
 

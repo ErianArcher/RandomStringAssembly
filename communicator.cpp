@@ -158,7 +158,7 @@ int processRecvRead(const char *filename, size_t pos) {
 
 // 该方法负责char *指针的delete
 int processRecvEdge(EdgeList *edgeList, char *value, ReadId readId, KMERPOS_t kmerpos) {
-    string strValue(value);
+    string strValue(string(value, 0, getK()));
 
     VertexId sourceVertex = getId(strValue.substr(0, strValue.size()-1));
     VertexId sinkVertex = getId(strValue.substr(1, strValue.size()-1));
@@ -319,6 +319,7 @@ void *receiverRunner(void *args) {
                     queryStatus = FAILED_QUERY;
                 } else {
                     value = edgeList->at(queryEdgeId)->value;
+                    if (NULL == value) cout << "debug4" << endl;
                     queryStatus = SUCCESSFUL_QUERY;
                 }
                 //cout << value << endl;
@@ -345,20 +346,21 @@ void *receiverRunner(void *args) {
                 if (vertexList->count(vertexId) == 0) {
                     cerr << "Cannot query the vertex #" << vertexId << endl;
                     queryStatus = FAILED_QUERY;
-                } else if (tangleList->count(vertexId) != 0) {
-                    queryStatus = TANGLE_QUERY;
-                    Vertex *thisVertex = vertexList->at(vertexId);
-                    edgeId = *thisVertex->outKMer->begin();
-                    // 删除vertex的一个出度
-                    removeOutEdge(vertexList, vertexId, edgeId);
-                    queryStatus = SUCCESSFUL_QUERY;
                 } else {
-                    // 不是tangle时
+                    // vertex存在时
                     Vertex *thisVertex = vertexList->at(vertexId);
                     if (thisVertex->outDegree < 1) { // 当遇到sink点时
                         cout << "Sink point is reached." << endl;
                         queryStatus = SINK_QUERY;
-                    } else {
+                    } else if (thisVertex->outDegree > 1) {
+                        // 判断tangle
+                        // 并行环境下不能使用tangleList->count(vertexId) != 0来判断是否为tangle
+                        queryStatus = TANGLE_QUERY;
+                        Vertex *thisVertex = vertexList->at(vertexId);
+                        edgeId = *thisVertex->outKMer->begin();
+                        // 删除vertex的一个出度
+                        removeOutEdge(vertexList, vertexId, edgeId);
+                    }else {
                         edgeId = *thisVertex->outKMer->begin();
                         // 删除vertex的一个出度
                         removeOutEdge(vertexList, vertexId, edgeId);

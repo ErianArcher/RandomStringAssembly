@@ -25,8 +25,9 @@ static char buffer[BUFFER_SIZE];
 static FILE *infile;
 
 int moveToNext() {
-    fclose(infile);
-    curSeek = 0ll;
+    if (NULL != infile)
+        fclose(infile);
+    //curSeek.__pos = 0;
     if (curIndex4Fnames + 1 >= fileAmount) {
         cout << "All files are read." << endl;
         return 0;
@@ -47,7 +48,8 @@ int readIOInit(int currank, int world_size, string filepath, string *filenames, 
     fnames = filenames;
     fileAmount = fileNum;
     curIndex4Fnames = -1; // 因为moveToNext需要直接增加
-    curSeek = 0ll;
+    infile = NULL;
+    //curSeek.__pos = 0;
     if (nullptr == filenames) {
         cerr << "No input read file." << endl;
         return -1;
@@ -68,8 +70,8 @@ int getNextRead(string *outread, size_t *readpos) {
         while ((flag = moveToNext()) == -1) ; // 当读到的文件不能打开则马上打开下一个
         if (flag == 0) return -1; // 全部读完则返回-1
     }
-    *readpos = curSeek; // 读取前的位置
-    fgetpos(infile, &curSeek);
+    //*readpos = curSeek.__pos; // 读取前的位置
+    // fgetpos(infile, &curSeek);
 
     int len = strlen(buffer) - 1;
     *outread = string(buffer, len);

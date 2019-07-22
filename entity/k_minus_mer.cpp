@@ -3,6 +3,7 @@
 //
 
 #include "k_minus_mer.h"
+#include "k_mer.h"
 #include <iostream>
 #include <string.h>
 #include <pthread.h>
@@ -17,7 +18,7 @@ unsigned int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, co
 
 unsigned int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId, const EdgeId inKMerId,
                        const EdgeId outKMerId, VertexMode_t mode) {
-    string idStr(value);
+    string idStr(string(value, 0, getK()-1));
     VertexId vId = hash<string>()(idStr);
     if (nullptr != fetchedVertexId) {
         *fetchedVertexId = vId;
@@ -216,11 +217,11 @@ int removeOutEdge(const VertexList *vList, const VertexId vId, const EdgeId eId)
         return 0;
     }
     Vertex *v = vList->at(vId);
+    pthread_mutex_lock(&kMinusMutex);
     if (v->outKMer->find(eId) == v->outKMer->end()) {
         cerr << "Error occurs when deleting an non-exist out edge #" << eId<< " of a vertex #" << vId << ".\n";
         return 0;
     }
-    pthread_mutex_lock(&kMinusMutex);
     v->outKMer->erase(eId);
     v->outDegree--;
     pthread_mutex_unlock(&kMinusMutex);
