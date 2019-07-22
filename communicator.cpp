@@ -276,7 +276,7 @@ void *receiverRunner(void *args) {
                 ReadId readId;
                 MPI_Unpack(pack, packSize, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
                 kmer = new char[strLen];
-                if (strLen != 3) {
+                if (strLen != getK()) {
                     cout << "Trasmission error: " << strLen << endl;
                 }
                 MPI_Unpack(pack, packSize, &position, kmer, strLen, MPI_CHAR, MPI_COMM_WORLD);
@@ -323,8 +323,8 @@ void *receiverRunner(void *args) {
                     queryStatus = SUCCESSFUL_QUERY;
                 }
                 //cout << value << endl;
-                MPI_Pack(&queryStatus, 1, MPI_INT, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
-                MPI_Pack(value, valueLen, MPI_CHAR, buf, QUERY_PACK_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Pack(&queryStatus, 1, MPI_INT, buf, BUFFER_SIZE, &sendMsgSize, MPI_COMM_WORLD);
+                MPI_Pack(value, valueLen, MPI_CHAR, buf, BUFFER_SIZE, &sendMsgSize, MPI_COMM_WORLD);
                 MPI_Send(buf, sendMsgSize, MPI_PACKED, sourceRank, QUERY_TAG(sourceRank, thisRank), MPI_COMM_WORLD);
                 delete[] buf;
             }
@@ -474,15 +474,15 @@ int queryOutEdgeOfVertexById(EdgeId *pEdgeId, int currank, int tarrank, VertexId
 }
 
 int queryFullEdgeById(string *pString, int currank, int tarrank, EdgeId edgeId) {
-    char *buf = new char[BUFFER_SIZE];
+    char *buf = new char[QUERY_PACK_SIZE];
     char *edgeValue = new char[getK() + 1];
     int packSize = 0;
     int position = 0;
     int op = EDGE_FULL_QUERY_OP;
     int queryStatus = FAILED_QUERY;
     MPI_Status status;
-    MPI_Pack(&op, 1, MPI_INT, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
-    MPI_Pack(&edgeId, 1, my_MPI_SIZE_T, buf, BUFFER_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Pack(&op, 1, MPI_INT, buf, QUERY_PACK_SIZE, &packSize, MPI_COMM_WORLD);
+    MPI_Pack(&edgeId, 1, my_MPI_SIZE_T, buf, QUERY_PACK_SIZE, &packSize, MPI_COMM_WORLD);
     MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
     delete[] buf;
     buf = new char[BUFFER_SIZE];
