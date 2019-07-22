@@ -266,6 +266,10 @@ int main(int argc, char** argv) {
             nextVertexId = getId(edgeValue.substr(1, getK() - 1)); // 初始化的时候edgeValue的长度应该是K
             //cout << edgeValue.substr(1, getK() - 1) << endl;
         } else {
+            if (edgeList->count(nextEdgeId) < 1) {
+                cout << "debug3" << endl;
+                continue;
+            }
             tmp = edgeList->at(nextEdgeId);
             edgeValue = string(tmp->value, 0, getK());
             nextVertexId = tmp->sinkKMinusMerId;
@@ -319,6 +323,11 @@ int main(int argc, char** argv) {
                 edgeValue.append(*tmpEdge);
                 nextVertexId = getId(edgeValue.substr(edgeValue.size() - (getK() - 1), getK() - 1));
             } else {
+                if (edgeList->count(nextEdgeId) < 1) {
+                    delete tmpEdge;
+                    cout << "debug2" << endl;
+                    break;
+                }
                 tmp = edgeList->at(nextEdgeId);
                 edgeValue.append(string(tmp->value, getK() - 1, 1)); // 把最后一位加上去
                 nextVertexId = tmp->sinkKMinusMerId;

@@ -294,7 +294,7 @@ void *receiverRunner(void *args) {
                 int queryStatus = FAILED_QUERY;
                 MPI_Unpack(pack, packSize, &position, &queryEdgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
                 if (edgeList->count(queryEdgeId) == 0) {
-                    cerr << "Cannot query the edge #" << queryEdgeId << endl;
+                    cerr << "1Cannot query the edge #" << queryEdgeId << endl;
                     queryStatus = FAILED_QUERY;
                 } else {
                     //querySinkId = edgeList->at(queryEdgeId)->sinkKMinusMerId;
@@ -315,7 +315,7 @@ void *receiverRunner(void *args) {
                 int queryStatus = FAILED_QUERY;
                 MPI_Unpack(pack, packSize, &position, &queryEdgeId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
                 if (edgeList->count(queryEdgeId) == 0) {
-                    cerr << "Cannot query the edge #" << queryEdgeId << endl;
+                    cerr << "2Cannot query the edge #" << queryEdgeId << endl;
                     queryStatus = FAILED_QUERY;
                 } else {
                     value = edgeList->at(queryEdgeId)->value;
