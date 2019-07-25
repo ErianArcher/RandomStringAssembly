@@ -22,7 +22,7 @@ kMer::~kMer() {
         delete value;
         value = nullptr;
     }
-    if (nullptr != additionValue) {
+    /*if (nullptr != additionValue) {
         delete additionValue;
         additionValue = nullptr;
     }
@@ -37,18 +37,18 @@ kMer::~kMer() {
     if (nullptr != includeThisPathSet) {
         delete includeThisPathSet;
         includeThisPathSet = nullptr;
-    }
+    }*/
 }
 
 kMer::kMer() {
     id = 0;
     value = nullptr;
-    isZ = false;
+    /*isZ = false;
     additionValue = nullptr;
     sizeOfAdditionValue = 0;
     endHerePathSet = nullptr;
     startFromHerePathSet = nullptr;
-    includeThisPathSet = nullptr;
+    includeThisPathSet = nullptr;*/
     sourceKMinusMerId = 0;
     sinkKMinusMerId = 0;
     multiplicity = 0;
@@ -92,7 +92,7 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
         e->sinkKMinusMerId = sinkVId;
         e->multiplicity++;
 
-        e->endHerePathSet = new SetOfID;
+        /*e->endHerePathSet = new SetOfID;
         if (nullptr == e->endHerePathSet) {
             cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
             pthread_mutex_unlock(&kmerMutex);
@@ -111,7 +111,7 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
             cerr << "Error occurs when adding edge #" << eId << ": Out of memory.\n";
             pthread_mutex_unlock(&kmerMutex);
             return 0;
-        }
+        }*/
 
         // Insert into edge list
         eList->insert(make_pair(eId, e));
@@ -134,7 +134,7 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
         e->multiplicity++;
 
     }
-    addReadPathTo(e, rId, kmerpos);
+    //addReadPathTo(e, rId, kmerpos);
 
     pthread_mutex_unlock(&kmerMutex);
 
@@ -142,7 +142,7 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
     //delete value;
     return 1;
 }
-
+/*
 int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetchedEdgeId, VertexId sourceVId,
                 VertexId sinkVId, SetOfID *endHerePathSet, SetOfID *startFromHerePathSet, SetOfID *includeThisPathSet) {
 
@@ -203,7 +203,7 @@ int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetch
     //delete startFromHerePathSet;
     //delete includeThisPathSet;
     return 1;
-}
+}*/
 
 int copyPathSetToEdge(SetOfID *ePathSet, SetOfID *pathSet) {
     int count = 0;
@@ -234,6 +234,7 @@ int removeEdge(EdgeList *eList, EdgeId eId) {
     return 1;
 }
 
+/*
 int addReadPathTo(const Edge *e, ReadId rId, KMERPOS_t kmerpos) {
     int count = 0;
     if (START_KMER == (kmerpos & START_KMER)){
@@ -264,20 +265,20 @@ int addReadPathTo(EdgeList *eList, EdgeId eId, ReadId rId, KMERPOS_t kmerpos) {
 int removeReadPathFrom(const Edge *e, ReadId rId, KMERPOS_t kmerpos) {
     int count = 0;
     if (START_KMER == (kmerpos & START_KMER)){
-        if (e->startFromHerePathSet->find(rId) != e->startFromHerePathSet->end()) {
-            e->startFromHerePathSet->erase(rId);
+        if (e->startFromHerePathSet->count(rId) != 0) {
+            e->startFromHerePathSet->erase_item(rId);
             count++;
         }
     }
     if (END_KMER == (kmerpos & END_KMER)) {
-        if (e->endHerePathSet->find(rId) != e->endHerePathSet->end()) {
-            e->endHerePathSet->erase(rId);
+        if (e->endHerePathSet->count(rId) != 0) {
+            e->endHerePathSet->erase_item(rId);
             count++;
         }
     }
     if (INCLUDE_KMER == (kmerpos & INCLUDE_KMER)) {
-        if (e->includeThisPathSet->find(rId) != e->includeThisPathSet->end()) {
-            e->includeThisPathSet->erase(rId);
+        if (e->includeThisPathSet->count(rId) != 0) {
+            e->includeThisPathSet->erase_item(rId);
             count++;
         }
     }
@@ -292,7 +293,7 @@ int removeReadPathFrom(EdgeList *eList, EdgeId eId, ReadId rId, KMERPOS_t kmerpo
     Edge *e = nullptr;
     e = eList->at(eId);
     return removeReadPathFrom(e, rId, kmerpos);
-}
+}*/
 
 int increaseAvailPassTime(EdgeList *eList, EdgeId eId) {
     Edge *e = fetchEdgeFromList(eList, eId);

@@ -103,10 +103,11 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
     } else { // This vertex exists.
         v = vList->at(vId);
         if (TAIL_VERTEX == (mode & TAIL_VERTEX)) {
-            if (v->inKMer->find(inKMerId) == v->inKMer->end()) {
+            if (v->inKMer->count(inKMerId) == 0) {
                 v->inDegree++;
+                v->inKMer->insert(inKMerId);
             }
-            v->inKMer->insert(inKMerId);
+
             if (v->inKMer->size() != v->inDegree) {
                 cerr << "Error occurs when adding vertex #" << vId << ".\n";
                 v->inDegree--;
@@ -117,10 +118,10 @@ unsigned int addVertex(VertexList *vList, VertexId vId, const EdgeId inKMerId,
         }
 
         if (HEAD_VERTEX == (mode & HEAD_VERTEX)) {
-            if (v->outKMer->find(outKMerId) == v->outKMer->end()) {
+            if (v->outKMer->count(outKMerId) == 0) {
                 v->outDegree++;
+                v->outKMer->insert(outKMerId);
             }
-            v->outKMer->insert(outKMerId);
             if (v->outKMer->size() != v->outDegree) {
                 cerr << "Error occurs when adding vertex #" << vId << ".\n";
                 v->outDegree--;
@@ -157,7 +158,7 @@ int addInEdge(const VertexList *vList, const VertexId vId, const EdgeId eId) {
         return 0;
     }
     Vertex *v = vList->at(vId);
-    if (v->inKMer->find(eId) != v->inKMer->end()) {
+    if (v->inKMer->count(eId) != 0) {
         cerr << "Error occurs when adding in edge #" << eId << " to vertex #" << vId << ": Edge exists\n";
         return 0;
     }
@@ -177,11 +178,11 @@ int removeInEdge(const VertexList *vList, const VertexId vId, const EdgeId eId) 
         return 0;
     }
     Vertex *v = vList->at(vId);
-    if (v->inKMer->find(eId) == v->inKMer->end()) {
+    if (v->inKMer->count(eId) == 0) {
         cerr << "Error occurs when deleting an non-exist in edge #" << eId<< " of a vertex #" << vId << ".\n";
         return 0;
     }
-    v->inKMer->erase(eId);
+    v->inKMer->erase_item(eId);
     v->inDegree--;
     if (v->inKMer->size() != v->inDegree) {
         cerr << "Error occurs when removing in edge #"<< eId << "from vertex #" << vId << ".\n";
@@ -197,7 +198,7 @@ int addOutEdge(const VertexList *vList, const VertexId vId, const EdgeId eId) {
         return 0;
     }
     Vertex *v = vList->at(vId);
-    if (v->outKMer->find(eId) != v->outKMer->end()) {
+    if (v->outKMer->count(eId) != 0) {
         cerr << "Error occurs when adding out edge #" << eId << " to vertex #" << vId << ": Edge exists\n";
         return 0;
     }
@@ -218,11 +219,11 @@ int removeOutEdge(const VertexList *vList, const VertexId vId, const EdgeId eId)
     }
     Vertex *v = vList->at(vId);
     pthread_mutex_lock(&kMinusMutex);
-    if (v->outKMer->find(eId) == v->outKMer->end()) {
+    if (v->outKMer->count(eId) == 0) {
         cerr << "Error occurs when deleting an non-exist out edge #" << eId<< " of a vertex #" << vId << ".\n";
         return 0;
     }
-    v->outKMer->erase(eId);
+    v->outKMer->erase_item(eId);
     v->outDegree--;
     pthread_mutex_unlock(&kMinusMutex);
     if (v->outKMer->size() != v->outDegree) {

@@ -198,14 +198,14 @@ string edgeToString(Edge *edge) {
     sstream << "{";
     sstream << "EdgeId: " << edge->id << ", ";
     sstream << "Value: " << edge->value << ", ";
-    sstream << "AddtionValue:(" << edge->isZ << ")(" << edge->sizeOfAdditionValue << ") "
-    << (edge->additionValue?edge->additionValue:"") << ", ";
+    /*sstream << "AddtionValue:(" << edge->isZ << ")(" << edge->sizeOfAdditionValue << ") "
+    << (edge->additionValue?edge->additionValue:"") << ", ";*/
     sstream << "Connection: " << edge->sourceKMinusMerId << "->" << edge->sinkKMinusMerId << ", ";
     sstream << "Multiplicity: " << edge->multiplicity << ", ";
     sstream << "AvailPassTime: " << edge->availPassTime << ", ";
-    sstream << "endHerePathSet: " << setToString(edge->endHerePathSet) << ", ";
+    /*sstream << "endHerePathSet: " << setToString(edge->endHerePathSet) << ", ";
     sstream << "startFromHerePathSet: " << setToString(edge->startFromHerePathSet) << ", ";
-    sstream << "includeThisPathSet: " << setToString(edge->includeThisPathSet);
+    sstream << "includeThisPathSet: " << setToString(edge->includeThisPathSet);*/
     return sstream.str();
 }
 
@@ -230,15 +230,15 @@ void edgeTest() {
 
     Edge *op = edgeList->at(eIds[3]);
     EdgeId *zeId = new EdgeId;
-    addReadPathTo(edgeList, eIds[3], rIds[1], START_KMER);
+    /*addReadPathTo(edgeList, eIds[3], rIds[1], START_KMER);
     addNewZEdge(edgeList, op->value, "z", zeId, op->sourceKMinusMerId, vIds[2],
                 op->endHerePathSet, op->startFromHerePathSet,op->includeThisPathSet);
     cout << edgeToString(edgeList->at(*zeId)) << endl;
     addNewZEdge(edgeList, op->value, "z", zeId, op->sourceKMinusMerId, vIds[2],
-                op->startFromHerePathSet, op->startFromHerePathSet,op->includeThisPathSet);
+                op->startFromHerePathSet, op->startFromHerePathSet,op->includeThisPathSet);*/
     cout << edgeToString(edgeList->at(*zeId)) << endl;
     cout << "=======removing edge from z edge ===============" << endl;
-    removeReadPathFrom(edgeList, *zeId, rIds[1], END_KMER);
+    //removeReadPathFrom(edgeList, *zeId, rIds[1], END_KMER);
     cout << edgeToString(edgeList->at(*zeId)) << endl;
     removeEdge(edgeList, *zeId);
     cout << "==================================" << endl;

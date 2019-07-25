@@ -146,12 +146,14 @@ int main(int argc, char** argv) {
         // 传送read的文件名和文件指针到目标机器
         int read4Rank = currank;
         *readId = getId(*curread);
+	/*
         if ((read4Rank = *readId % world_size) == currank) {
             // Create a thread to process
             if (requestWriteRead(*curread) == 0) {
                 exit(1);
             }
         }
+	*/
 
         // 先把全部read处理完之后再充分拍kmer和kminusmer
         // 并行化处理read中的kmer
@@ -207,11 +209,12 @@ int main(int argc, char** argv) {
         }
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
+
     // 等待线程
     mainThreadTellFinished(currank, world_size);
     joinThreads(sender_tid, sender_num);
     joinThreads(receiver_tid, world_size, currank);
-
 
 
     // 在等待子线程结束之前
@@ -421,7 +424,9 @@ int main(int argc, char** argv) {
     string superContig;
     if (0 == currank) {
         superContig = reduceSuperContigFromOthers(currank, world_size, superContigSS.str());
-        cout << superContig << endl;
+        ofstream outfile("output"); 
+	outfile << superContig << endl;
+	outfile.close();
     } else {
         sendSuperContigToRankHead(0, currank, superContigSS.str());
     }

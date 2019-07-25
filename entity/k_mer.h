@@ -13,12 +13,12 @@
 struct kMer {
     size_t id;
     char *value;
-    bool isZ;
+    /*bool isZ;
     char *additionValue;
     int sizeOfAdditionValue;
     SetOfID *endHerePathSet;
     SetOfID *startFromHerePathSet;
-    SetOfID *includeThisPathSet;
+    SetOfID *includeThisPathSet;*/
     size_t sourceKMinusMerId;
     size_t sinkKMinusMerId;
     int multiplicity;
@@ -42,8 +42,10 @@ int addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVI
 
 int addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos);
 
+/*
 int addNewZEdge(EdgeList *eList, char *value, char *additionValue, EdgeId *fetchedEdgeId, VertexId sourceVId,
                 VertexId sinkVId, SetOfID *endHerePathSet, SetOfID *startFromHerePathSet, SetOfID *includeThisPathSet);
+*/
 
 int removeEdge(EdgeList *eList, EdgeId eId);
 

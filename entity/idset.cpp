@@ -17,7 +17,7 @@ SetOfID *setMinus(const SetOfID &a, const SetOfID &b) {
     SetOfID *result = nullptr;
     result = new SetOfID;
     for (auto it: a) {
-        if (b.find(it) == b.end()) result->insert(it);
+        if (b.count(it) == 0) result->insert(it);
     }
     return result;
 }
@@ -36,7 +36,7 @@ SetOfID *setUnion(const SetOfID &a, const SetOfID &b) {
 
     copySetTo(result, &a);
     for (auto it: b) {
-        if (result->find(it) == result->end()) result->insert(it);
+        if (result->count(it) == 0) result->insert(it);
     }
     return result;
 }
@@ -52,7 +52,7 @@ SetOfID *setIntersect(const SetOfID &a, const SetOfID &b) {
     SetOfID *result = nullptr;
     result = new SetOfID;
     for (auto it: a) {
-        if (b.find(it) != b.end()) result->insert(it);
+        if (b.count(it) == 0) result->insert(it);
     }
     return result;
 }

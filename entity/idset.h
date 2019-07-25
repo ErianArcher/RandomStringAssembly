@@ -5,11 +5,12 @@
 #ifndef RANDOMSTRINGASSEMBLY_IDSET_H
 #define RANDOMSTRINGASSEMBLY_IDSET_H
 #include <cstdlib>
-#include <unordered_set>
 #include <pthread.h>
 #include <string>
+#include <vector>
+#include <algorithm>
 
-inline size_t getId(std::string value) {
+inline size_t getId(const std::string& value) {
     return std::hash<std::string>()(value);
 }
 
@@ -18,11 +19,36 @@ typedef size_t ReadId;
 typedef size_t VertexId;
 typedef size_t EdgeId;
 
-class SetOfID : public std::unordered_set<size_t> {
+class SetOfID : public std::vector<size_t> {
 public:
     void safe_insert(size_t id) {
         pthread_mutex_lock(&setOfIDMutex);
-        this->insert(id);
+        this->push_back(id);
+        pthread_mutex_unlock(&setOfIDMutex);
+    }
+
+    void insert(size_t id) {
+        this->push_back(id);
+    }
+
+    int count(size_t id) const {
+        if (this->end() != std::find(this->begin(), this->end(), id)) {
+            return 1;
+        }
+        return 0;
+    }
+
+    void erase_item(size_t id) {
+        pthread_mutex_lock(&setOfIDMutex);
+        for (int j = 0; j < this->size(); ++j) {
+            if (id == *(this->begin()+j)) this->erase(this->begin()+j);
+        }
+        pthread_mutex_unlock(&setOfIDMutex);
+    }
+
+    void erase_last() {
+        pthread_mutex_lock(&setOfIDMutex);
+        this->pop_back();
         pthread_mutex_unlock(&setOfIDMutex);
     }
 
