@@ -157,10 +157,12 @@ int main(int argc, char** argv) {
 
         // 先把全部read处理完之后再充分拍kmer和kminusmer
         // 并行化处理read中的kmer
-        int totalKmerNum = curread->size()-k+1;
+        /*int totalKmerNum = curread->size()-k+1;
         int kMerNum4Each = totalKmerNum / world_size;
         int startKMer = kMerNum4Each * currank;
-        int end = (currank + 1 == world_size)? totalKmerNum: (startKMer + kMerNum4Each);
+        int end = (currank + 1 == world_size)? totalKmerNum: (startKMer + kMerNum4Each);*/
+        int startKMer = 0;
+        int end = curread->size() - getK();
         for (int i = startKMer; i < end; ++i) {
             for (int j = 0; j < k; ++j) {
                 char tmp = (*curread)[i + j];

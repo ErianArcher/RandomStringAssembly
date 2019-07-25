@@ -20,7 +20,8 @@ static string path;
 static string *fnames;
 static int fileAmount = 0;
 static int curIndex4Fnames;
-static fpos_t curSeek;
+static off_t curSeek;
+static off_t stopSeek;
 static char buffer[BUFFER_SIZE];
 static FILE *infile;
 
@@ -28,6 +29,7 @@ int moveToNext() {
     if (NULL != infile)
         fclose(infile);
     //curSeek.__pos = 0;
+
     if (curIndex4Fnames + 1 >= fileAmount) {
         cout << "All files are read." << endl;
         return 0;
@@ -38,6 +40,24 @@ int moveToNext() {
         cerr << "Unable to open file: " << fname << endl;
         return -1;
     }
+
+    fseek(infile, 0, SEEK_END);
+    off_t totalSize = ftello(infile);
+    stopSeek = (thisRank+1==host_num)?totalSize: totalSize / host_num * (thisRank+1);
+    if (thisRank == 0) {
+        curSeek = 0;
+        fseeko(infile, curSeek, SEEK_SET);
+    } else {
+        curSeek = totalSize / host_num * thisRank;
+        if (curSeek < 1) {
+            cerr << "Error on computing file position for #" << thisRank << endl;
+            return -1;
+        }
+        fseeko(infile, curSeek - 1, SEEK_SET); // 定位到属于该worker的前一个位置，以防止curSeek就是一条完整的read的开端的情况
+        while (getc(infile) != '\n'); // 把不完整的read过滤掉
+        curSeek = ftello(infile);
+    }
+
     return 1;
 }
 
@@ -65,15 +85,16 @@ int readIOInit(int currank, int world_size, string filepath, string *filenames, 
 int getNextRead(string *outread, size_t *readpos) {
     if (fileAmount < 1) return -1;
     // 先尝试读取，如果不能读取则转向下一个文件
-    while (fgets(buffer, BUFFER_SIZE, infile) == NULL) {
+    while (curSeek >= stopSeek) {
         int flag;
         while ((flag = moveToNext()) == -1) ; // 当读到的文件不能打开则马上打开下一个
         if (flag == 0) return -1; // 全部读完则返回-1
     }
-    //*readpos = curSeek.__pos; // 读取前的位置
-    // fgetpos(infile, &curSeek);
+    fgets(buffer, BUFFER_SIZE, infile);
+    *readpos = curSeek; // 读取前的位置
+    curSeek = ftello64(infile);
 
-    int len = strlen(buffer) - 1;
+    int len = strlen(buffer) - 1; // 去除fgets中的换行符
     *outread = string(buffer, len);
 
     return 1;
