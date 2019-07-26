@@ -9,6 +9,7 @@
 #include "entity/read.h"
 
 #define BUFFER_SIZE 152
+#define MB (1024*1024)
 
 using namespace std;
 
@@ -95,8 +96,10 @@ int getNextRead(string *outread, size_t *readpos) {
     curSeek = ftello64(infile);
 
     int len = strlen(buffer) - 1; // 去除fgets中的换行符
-    *outread = string(buffer, len);
-
+    buffer[len] = '\0';
+    outread->clear();
+    outread->append(buffer);
+    printf("\r%ldMB", (stopSeek - curSeek) / MB);
     return 1;
 }
 

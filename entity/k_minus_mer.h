@@ -6,7 +6,7 @@
 #define RANDOMSTRINGASSEMBLY_K_MINUS_MER_H
 
 #include "idset.h"
-#include <unordered_map>
+#include <map>
 
 // Constants for VertexMode_t
 #define HEAD_VERTEX 1u
@@ -34,7 +34,7 @@ struct kMinusMer {
 
 typedef struct kMinusMer Vertex;
 typedef struct kMinusMer KMinusMer;
-typedef std::unordered_map<VertexId, Vertex *> VertexList;
+typedef std::map<VertexId, Vertex *> VertexList;
 
 typedef unsigned int VertexMode_t;
 //typedef int VertexAddReturn_t;

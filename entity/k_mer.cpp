@@ -69,8 +69,7 @@ int addNewEdge(EdgeList *eList, char *value, VertexId sourceVId, VertexId sinkVI
 
 int
 addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceVId, VertexId sinkVId, ReadId rId, KMERPOS_t kmerpos) {
-    string idStr(value, 0, getK());
-    EdgeId eId = hash<string>()(idStr);
+    EdgeId eId = hash<string>()(value);
     Edge *e = nullptr;
     pthread_mutex_lock(&kmerMutex);
     if (eList->find(eId) == eList->end()) {
@@ -86,7 +85,9 @@ addNewEdge(EdgeList *eList, char *value, EdgeId *fetchedEdgeId, VertexId sourceV
             return 0;
         }
         // cout << string(value, 0, getK()).c_str() << endl;
-        strcpy(e->value, string(value, 0, getK()).c_str());
+        for (int i = 0; i < getK(); ++i) {
+            e->value[i] = value[i];
+        }
 
         e->sourceKMinusMerId = sourceVId;
         e->sinkKMinusMerId = sinkVId;

@@ -100,9 +100,9 @@ void *testReceiverRunner(void *arg);
 
 void *receiverRunner(void *recvArg);
 
-void sendSuperContigToRankHead(int headrank, int currank, string superContig);
+void sendSuperContigToRankHead(int headrank, int currank, string &superContig);
 
-string reduceSuperContigFromOthers(int currank, int world_size, string superContig);
+string reduceSuperContigFromOthers(int currank, int world_size, string &superContig);
 
 int queryEdgeById(string *pEdgeStr, int currank, int tarrank, EdgeId edgeId);
 

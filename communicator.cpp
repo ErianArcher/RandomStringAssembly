@@ -145,25 +145,28 @@ requestOtherRanksToStoreVertex(int currank, int world_size, VertexId vertexId, E
 }
 
 // 该方法负责char *指针的delete
+// TODO: 不负责read的delete
 int processRecvRead(const char *filename, size_t pos) {
     ifstream infile(filename);
-    string read;
+    string *read = new string;
     infile.seekg(pos);
-    getline(infile, read);
+    getline(infile, *read);
     infile.close();
-    delete filename;
-    if (requestWriteRead(read) == 0) return 0;
+    delete[] filename;
+    if (requestWriteRead(*read) == 0) return 0;
     return 1;
 }
 
 // 该方法负责char *指针的delete
 int processRecvEdge(EdgeList *edgeList, char *value, ReadId readId, KMERPOS_t kmerpos) {
-    string strValue(string(value, 0, getK()));
-
-    VertexId sourceVertex = getId(strValue.substr(0, strValue.size()-1));
-    VertexId sinkVertex = getId(strValue.substr(1, strValue.size()-1));
+    string *strValue = new string(value, 0, getK()-1);
+    VertexId sourceVertex = getId(*strValue);
+    delete strValue;
+    strValue = new string(value, 1, getK()-1);
+    VertexId sinkVertex = getId(*strValue);
+    delete strValue;
     int flag = addNewEdge(edgeList, value, sourceVertex, sinkVertex, readId, kmerpos);
-    delete value;
+    delete[] value;
     return flag;
 }
 
@@ -175,7 +178,7 @@ int processRecvVertex(VertexList *vertexList, SetOfID *tangleList, VertexId vert
         flag = addVertex(vertexList, vertexId, edgeId, 0, vertexMode);
 
     if (MULTI_OUT_DEGREE == (flag & MULTI_OUT_DEGREE)) {
-        tangleList->safe_insert(vertexId);
+        //tangleList->safe_insert(vertexId);
     }
     return flag;
 }
@@ -275,11 +278,12 @@ void *receiverRunner(void *args) {
                 char *kmer = nullptr;
                 ReadId readId;
                 MPI_Unpack(pack, packSize, &position, &strLen, 1, MPI_INT, MPI_COMM_WORLD);
-                kmer = new char[strLen];
+                kmer = new char[strLen+1];
                 if (strLen != getK()) {
                     cout << "Trasmission error: " << strLen << endl;
                 }
                 MPI_Unpack(pack, packSize, &position, kmer, strLen, MPI_CHAR, MPI_COMM_WORLD);
+                kmer[strLen] = '\0';
                 MPI_Unpack(pack, packSize, &position, &readId, 1, my_MPI_SIZE_T, MPI_COMM_WORLD);
                 KMERPOS_t kmerpos;
                 MPI_Unpack(pack, packSize, &position, &kmerpos, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
@@ -394,14 +398,14 @@ item::item() {
 }
 
 // 不能与线程并行的共存
-void sendSuperContigToRankHead(int headrank, int currank, string superContig) {
+void sendSuperContigToRankHead(int headrank, int currank, string &superContig) {
     int msgsize = superContig.size();
     MPI_Send(&msgsize, 1, MPI_INT, headrank, TAG(currank, headrank), MPI_COMM_WORLD);
     MPI_Send(superContig.c_str(), superContig.size(), MPI_CHAR, headrank, TAG(currank, headrank), MPI_COMM_WORLD);
 }
 
 // 不能与线程并行的共存
-string reduceSuperContigFromOthers(int currank, int world_size, string superContig) {
+string reduceSuperContigFromOthers(int currank, int world_size, string &superContig) {
     stringstream sc;
     sc << superContig;
     //cout << superContig;

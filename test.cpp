@@ -197,7 +197,7 @@ string edgeToString(Edge *edge) {
     stringstream sstream;
     sstream << "{";
     sstream << "EdgeId: " << edge->id << ", ";
-    sstream << "Value: " << edge->value << ", ";
+    sstream << "Value: " << string(edge->value, 0, getK()) << ", ";
     /*sstream << "AddtionValue:(" << edge->isZ << ")(" << edge->sizeOfAdditionValue << ") "
     << (edge->additionValue?edge->additionValue:"") << ", ";*/
     sstream << "Connection: " << edge->sourceKMinusMerId << "->" << edge->sinkKMinusMerId << ", ";

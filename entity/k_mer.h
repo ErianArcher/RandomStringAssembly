@@ -8,7 +8,7 @@
 
 #include "idset.h"
 #include "read.h"
-#include <unordered_map>
+#include <map>
 
 struct kMer {
     size_t id;
@@ -31,7 +31,7 @@ struct kMer {
 
 typedef struct kMer Edge;
 typedef struct kMer KMer;
-typedef std::unordered_map<EdgeId , Edge *> EdgeList;
+typedef std::map<EdgeId , Edge *> EdgeList;
 typedef EdgeList KMerList;
 
 void setK(int k);

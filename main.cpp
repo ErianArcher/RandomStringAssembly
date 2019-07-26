@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <fstream>
 #include <thread>
+#include <ctype.h>
 #include "entity/idset.h"
 #include "entity/read.h"
 #include "entity/k_minus_mer.h"
@@ -20,17 +21,22 @@ using namespace std;
 void joinThreads(pthread_t tids[], int tnum, int exceptIndex = -1) {
     for (int i = 0; i < tnum; ++i) {
         if (i == exceptIndex) continue;
+        //cout << "waiting sender/receiver #" << i << endl;
         pthread_join(tids[i], NULL);
     }
 }
 
 int main(int argc, char** argv) {
     int startIndex = 0;
+    string *tmp = new string;
     for (; startIndex < argc; ++startIndex) {
-        if (string(argv[startIndex]).find("RandomStringAssembly") != string::npos) {
+        tmp->clear();
+        tmp->append(argv[startIndex]);
+        if (tmp->find("RandomStringAssembly") != string::npos) {
             break;
         }
     }
+
     int realargc = argc - startIndex;
     int k = 3;
     string folderPath = "./input/";
@@ -40,8 +46,11 @@ int main(int argc, char** argv) {
         cout << "program k inputfolder filenames..." << endl;
     }
 
+    tmp->clear();
+    tmp->append(argv[startIndex + 1]);
+    k = stoi(*tmp);
+    delete tmp;
 
-    k = stoi(string(argv[startIndex + 1]));
     folderPath = string(argv[startIndex + 2]);
     if (*folderPath.cend() != '/') {
         folderPath.append("/");
@@ -85,12 +94,12 @@ int main(int argc, char** argv) {
     string *curread = new string;
     ReadId *readId = new ReadId;
     size_t readpos;
-    char *tmpKMer = new char[k];
-    char *tmpKMinusMer1 = new char[k-1];
-    char *tmpKMinusMer2 = new char[k-1];
-    EdgeId *tmpEdgeId = new EdgeId;
-    VertexId *tmpVertexId1 = new VertexId;
-    VertexId *tmpVertexId2 = new VertexId;
+    char *tmpKMer = new char[k+1];
+    char *tmpKMinusMer1 = new char[k];
+    char *tmpKMinusMer2 = new char[k];
+    EdgeId tmpEdgeId;
+    VertexId tmpVertexId1;
+    VertexId tmpVertexId2;
     KMERPOS_t edgeMode = NOT_INCLUDE_KMER;
 
     // 开启线程
@@ -162,52 +171,62 @@ int main(int argc, char** argv) {
         int startKMer = kMerNum4Each * currank;
         int end = (currank + 1 == world_size)? totalKmerNum: (startKMer + kMerNum4Each);*/
         int startKMer = 0;
-        int end = curread->size() - getK();
+        int end = curread->size() - getK() + 1;
+        string *tempStr = nullptr;
+        char tmp;
         for (int i = startKMer; i < end; ++i) {
             for (int j = 0; j < k; ++j) {
-                char tmp = (*curread)[i + j];
+                tmp = (*curread)[i + j];
+                if (!isalpha(tmp)) {
+                    //cout << tmp << endl;
+                    break;
+                }
                 tmpKMer[j] = tmp;
                 if (j < k -1)
                     tmpKMinusMer1[j] = tmp;
                 if (j > 0)
                     tmpKMinusMer2[j-1] = tmp;
             }
+            if (!isalpha(tmp)) continue;
+            tmpKMer[k] = '\0';
+            tmpKMinusMer1[k-1] = '\0';
+            tmpKMinusMer2[k-1] = '\0';
 
             // 判断kmer在read的哪个位置
             if (i == 0) edgeMode = START_KMER;
             else if (i == end - 1) edgeMode = END_KMER;
             else edgeMode = INCLUDE_KMER;
 
-            *tmpEdgeId = getId(string(tmpKMer, 0, getK()));
-            *tmpVertexId1 = getId(string(tmpKMinusMer1, 0, getK()-1));
-            *tmpVertexId2 = getId(string(tmpKMinusMer2, 0, getK()-1));
+            tmpEdgeId = getId(tmpKMer);
+            tmpVertexId1 = getId(tmpKMinusMer1);
+            tmpVertexId2 = getId(tmpKMinusMer2);
 
             // 创建开始Vertex
             //cout << "index: " << i << "; content: " << tmpKMinusMer1 << endl;
-            if (*tmpVertexId1 % world_size != currank) {
-                requestOtherRanksToStoreVertex(currank, world_size, *tmpVertexId1, *tmpEdgeId, HEAD_VERTEX);
+            if (tmpVertexId1 % world_size != currank) {
+                requestOtherRanksToStoreVertex(currank, world_size, tmpVertexId1, tmpEdgeId, HEAD_VERTEX);
             } else {
-                if ((addVertex(vertexList, tmpKMinusMer1, 0, *tmpEdgeId, HEAD_VERTEX) & MULTI_OUT_DEGREE) == MULTI_OUT_DEGREE){
-                    tangleList->safe_insert(*tmpVertexId1);
+                if ((addVertex(vertexList, tmpKMinusMer1, 0, tmpEdgeId, HEAD_VERTEX) & MULTI_OUT_DEGREE) == MULTI_OUT_DEGREE){
+                    //tangleList->safe_insert(*tmpVertexId1);
                 }
             }
 
             // 创建终止Vertex
             //cout << "index: " << i << "; content: " << tmpKMinusMer2 << endl;
-            if (*tmpVertexId2 % world_size != currank) {
-                requestOtherRanksToStoreVertex(currank, world_size, *tmpVertexId2, *tmpEdgeId, TAIL_VERTEX);
+            if (tmpVertexId2 % world_size != currank) {
+                requestOtherRanksToStoreVertex(currank, world_size, tmpVertexId2, tmpEdgeId, TAIL_VERTEX);
             } else {
-                if ((addVertex(vertexList, tmpKMinusMer2, *tmpEdgeId, 0, TAIL_VERTEX) & MULTI_OUT_DEGREE) == MULTI_OUT_DEGREE)
+                if ((addVertex(vertexList, tmpKMinusMer2, tmpEdgeId, 0, TAIL_VERTEX) & MULTI_OUT_DEGREE) == MULTI_OUT_DEGREE)
                 {
-                    tangleList->safe_insert(*tmpVertexId2);
+                    //tangleList->safe_insert(*tmpVertexId2);
                 }
             }
 
             // 创建Edge
-            if (*tmpEdgeId % world_size != currank)
-                requestOtherRanksToStoreEdge(currank, world_size, tmpKMer, *tmpEdgeId, *readId, edgeMode);
+            if (tmpEdgeId % world_size != currank)
+                requestOtherRanksToStoreEdge(currank, world_size, tmpKMer, tmpEdgeId, *readId, edgeMode);
             else
-                addNewEdge(edgeList, tmpKMer, tmpEdgeId, *tmpVertexId1, *tmpVertexId2, *readId, edgeMode);
+                addNewEdge(edgeList, tmpKMer, &tmpEdgeId, tmpVertexId1, tmpVertexId2, *readId, edgeMode);
         }
     }
 
@@ -216,7 +235,7 @@ int main(int argc, char** argv) {
     // 等待线程
     mainThreadTellFinished(currank, world_size);
     joinThreads(sender_tid, sender_num);
-    joinThreads(receiver_tid, world_size, currank);
+    //joinThreads(receiver_tid, world_size, currank);
 
 
     // 在等待子线程结束之前
@@ -289,7 +308,7 @@ int main(int argc, char** argv) {
         // cout << "in source" << endl;
         Vertex *sourceVertex = vertexList->at(sourceId);
         Edge *tmp = nullptr;
-        string edgeValue("");
+        string *edgeValue = new string;
         VertexId nextVertexId;
         EdgeId nextEdgeId = *sourceVertex->outKMer->begin(); // 倘若source点有多个出度则随机选取一个出度
         removeOutEdge(vertexList, sourceId, nextEdgeId); // 每次经过一个出度都要删除
@@ -297,13 +316,13 @@ int main(int argc, char** argv) {
         int edgeInRank = nextEdgeId % world_size;
         if (edgeInRank != currank) { // edge不在这个机器上
             // cout << "debug" << endl;
-            if (FAILED_QUERY == queryFullEdgeById(&edgeValue, currank, edgeInRank, nextEdgeId)) {
+            if (FAILED_QUERY == queryFullEdgeById(edgeValue, currank, edgeInRank, nextEdgeId)) {
                 // 查询失败，跳过这个vertex
                 cout << "Cannot queue the first out edge of this source vertex #" << sourceId << endl;
                 continue;
             }
             // cout << edgeValue << endl;
-            nextVertexId = getId(edgeValue.substr(1, getK() - 1)); // 初始化的时候edgeValue的长度应该是K
+            nextVertexId = getId(edgeValue->substr(1, getK() - 1)); // 初始化的时候edgeValue的长度应该是K
             //cout << edgeValue.substr(1, getK() - 1) << endl;
         } else {
             if (edgeList->count(nextEdgeId) < 1) {
@@ -311,7 +330,8 @@ int main(int argc, char** argv) {
                 continue;
             }
             tmp = edgeList->at(nextEdgeId);
-            edgeValue = string(tmp->value, 0, getK());
+            delete edgeValue;
+            edgeValue = new string(tmp->value, 0, getK());
             nextVertexId = tmp->sinkKMinusMerId;
         }
         // 初始化完成，开始遍历直至遇到sink
@@ -362,8 +382,10 @@ int main(int argc, char** argv) {
                 }
                 //cout << "debug2" << endl;
                 // cout << tmpEdge << endl;
-                edgeValue.append(*tmpEdge);
-                nextVertexId = getId(edgeValue.substr(edgeValue.size() - (getK() - 1), getK() - 1));
+                edgeValue->append(*tmpEdge);
+                string *tmpSubstring = new string(*edgeValue, edgeValue->size() - (getK() - 1), getK() - 1);
+                nextVertexId = getId(*tmpSubstring);
+                delete tmpSubstring;
             } else {
                 if (edgeList->count(nextEdgeId) < 1) {
                     delete tmpEdge;
@@ -371,16 +393,15 @@ int main(int argc, char** argv) {
                     break;
                 }
                 tmp = edgeList->at(nextEdgeId);
-                edgeValue.append(string(tmp->value, getK() - 1, 1)); // 把最后一位加上去
+                *edgeValue += tmp->value[getK()-1]; // 把最后一位加上去
                 nextVertexId = tmp->sinkKMinusMerId;
             }
 
             delete tmpEdge;
         }
 
-        string *pcontig = new string(edgeValue);
         // 在contig中添加元素
-        contigList[sourceId] = pcontig;
+        contigList[sourceId] = edgeValue;
     }
 
     // 构造super contig
@@ -398,12 +419,12 @@ int main(int argc, char** argv) {
     // 等待线程
     mainThreadTellFinished(currank, world_size);
     joinThreads(sender_tid, sender_num);
-    joinThreads(receiver_tid, world_size, currank);
+    //joinThreads(receiver_tid, world_size, currank);
 
     //std::chrono::milliseconds dura(10000);
     //std::this_thread::sleep_for(dura);
     // DEBUG
-    stringstream ss;
+    /*stringstream ss;
     ss << "./input/debug_host" << currank << ".txt";
     string debugFile = ss.str();
     ofstream outfile(debugFile);
@@ -418,19 +439,22 @@ int main(int argc, char** argv) {
     outfile << "===========Tangles===========" << tangleList->size() << endl;
     for (auto v: *tangleList) {
         outfile << v << endl;
-    }
+    }*/
 
     //cout << "reached" << endl;
 
     // 同步各rank的super contig
     string superContig;
+    string tmpContig;
     if (0 == currank) {
-        superContig = reduceSuperContigFromOthers(currank, world_size, superContigSS.str());
+        tmpContig = superContigSS.str();
+        superContig = reduceSuperContigFromOthers(currank, world_size, tmpContig);
         ofstream outfile("output"); 
-	outfile << superContig << endl;
-	outfile.close();
+        outfile << superContig << endl;
+        outfile.close();
     } else {
-        sendSuperContigToRankHead(0, currank, superContigSS.str());
+        superContigSS.str(tmpContig);
+        sendSuperContigToRankHead(0, currank, tmpContig);
     }
 
     //cout << "reached2" << endl;

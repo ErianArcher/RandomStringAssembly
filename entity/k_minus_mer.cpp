@@ -18,8 +18,7 @@ unsigned int addVertex(VertexList *vList, char *value, const EdgeId inKMerId, co
 
 unsigned int addVertex(VertexList *vList, char *value, VertexId *fetchedVertexId, const EdgeId inKMerId,
                        const EdgeId outKMerId, VertexMode_t mode) {
-    string idStr(string(value, 0, getK()-1));
-    VertexId vId = hash<string>()(idStr);
+    VertexId vId = hash<string>()(value);
     if (nullptr != fetchedVertexId) {
         *fetchedVertexId = vId;
     }

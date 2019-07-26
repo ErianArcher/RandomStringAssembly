@@ -14,6 +14,10 @@ inline size_t getId(const std::string& value) {
     return std::hash<std::string>()(value);
 }
 
+inline size_t getId(const char *value) {
+    return std::hash<std::string>()(value);
+}
+
 //typedef std::unordered_set<size_t> SetOfID;
 typedef size_t ReadId;
 typedef size_t VertexId;
