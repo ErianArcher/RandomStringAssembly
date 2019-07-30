@@ -63,3 +63,8 @@ int setIntersectTo(SetOfID *a, const SetOfID &b) {
     delete r;
     return a->size();
 }
+
+
+size_t idBelongTo(int world_size, size_t id) {
+    return id % (size_t) world_size;
+}

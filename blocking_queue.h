@@ -32,9 +32,11 @@ public:
         m_back = -1;
 
         m_mutex = new pthread_mutex_t;
-        m_cond = new pthread_cond_t;
+        m_rcond = new pthread_cond_t;
+        m_wcond = new pthread_cond_t;
         pthread_mutex_init(m_mutex, NULL);
-        pthread_cond_init(m_cond, NULL);
+        pthread_cond_init(m_rcond, NULL);
+        pthread_cond_init(m_wcond, NULL);
     }
 
     void clear()
@@ -54,10 +56,11 @@ public:
         pthread_mutex_unlock(m_mutex);
 
         pthread_mutex_destroy(m_mutex);
-        pthread_cond_destroy(m_cond);
+        pthread_cond_destroy(m_rcond);
+        pthread_cond_destroy(m_wcond);
 
         delete m_mutex;
-        delete m_cond;
+        delete m_rcond;
     }
 
     bool full()const
@@ -131,29 +134,34 @@ public:
     bool push(const T& item)
     {
         pthread_mutex_lock(m_mutex);
-        if(m_size >= m_max_size)
+        const bool was_empty = (m_size == 0);
+        while (m_size >= m_max_size)
         {
-            pthread_cond_broadcast(m_cond);
-            pthread_mutex_unlock(m_mutex);
-            return false;
+            if (0 != pthread_cond_wait(m_wcond, m_mutex)) {
+                pthread_cond_broadcast(m_rcond);
+                pthread_mutex_unlock(m_mutex);
+                return false;
+            }
         }
 
         m_back = (m_back + 1) % m_max_size;
         m_array[m_back] = item;
 
         m_size++;
-        pthread_cond_broadcast(m_cond);
+        pthread_cond_broadcast(m_rcond);
         pthread_mutex_unlock(m_mutex);
-
+        // 唤醒push
+        if (was_empty) pthread_cond_broadcast(m_rcond);
         return true;
     }
 
     bool pop(T *item)
     {
         pthread_mutex_lock(m_mutex);
+        const bool was_full = (m_size == m_max_size);
         while(m_size <= 0)
         {
-            if(0 != pthread_cond_wait(m_cond, m_mutex))
+            if(0 != pthread_cond_wait(m_rcond, m_mutex))
             {
                 pthread_mutex_unlock(m_mutex);
                 return false;
@@ -164,6 +172,8 @@ public:
         *item = m_array[m_front];
         m_size--;
         pthread_mutex_unlock(m_mutex);
+        // 唤醒push
+        if (was_full) pthread_cond_broadcast(m_wcond);
         return true;
     }
 
@@ -173,11 +183,12 @@ public:
         struct timeval now = {0,0};
         gettimeofday(&now, NULL);
         pthread_mutex_lock(m_mutex);
+        const bool was_full = (m_size == m_max_size);
         if(m_size <= 0)
         {
             t.tv_sec = now.tv_sec + ms_timeout/1000;
             t.tv_nsec = (ms_timeout % 1000)*1000;
-            if(0 != pthread_cond_timedwait(m_cond, m_mutex, &t))
+            if(0 != pthread_cond_timedwait(m_rcond, m_mutex, &t))
             {
                 pthread_mutex_unlock(m_mutex);
                 return false;
@@ -193,12 +204,15 @@ public:
         m_front = (m_front + 1) % m_max_size;
         *item = m_array[m_front];m_size--;
         pthread_mutex_unlock(m_mutex);
+        // 唤醒push
+        if (was_full) pthread_cond_broadcast(m_wcond);
         return true;
     }
 
 private:
     pthread_mutex_t *m_mutex;
-    pthread_cond_t *m_cond;
+    pthread_cond_t *m_rcond;
+    pthread_cond_t *m_wcond;
     T *m_array;
     int m_size;
     int m_max_size;

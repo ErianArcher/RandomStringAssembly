@@ -16,7 +16,7 @@
 
 using namespace std;
 
-block_queue<Item *> *blockQueue = new block_queue<Item *>(1024);
+block_queue<Item *> *blockQueue = new block_queue<Item *>(1024*1024);
 
 #define MAIN_THREAD_RUNNING 1
 #define MAIN_THREAD_WAITING 0
@@ -41,7 +41,7 @@ void mainThreadTellFinished(int thisRank, int world_size) {
         itemStop->tarRank = i;
         itemStop->pack = buf;
         if (nullptr == blockQueue) cerr << "Cannot create blocking queue." << endl;
-        blockQueue->push(itemStop);
+        if (!blockQueue->push(itemStop)) cerr << "Cannot push stop signal." << endl;
         itemStop = nullptr;
         buf = nullptr;
         packSizeStop = 0;
@@ -95,7 +95,7 @@ void requestOtherRanksToStoreEdge(int currank, int world_size, const char *value
     int packSize = 0;
     int strLen = getK();
     int op = EDGE_STORE_OP;
-    int tarrank = edgeId % world_size;
+    size_t tarrank = idBelongTo(world_size, edgeId);
     if (tarrank == currank) {
         cerr << "Putting a edge belonging to this host to other hosts." << endl;
         return;
@@ -110,11 +110,11 @@ void requestOtherRanksToStoreEdge(int currank, int world_size, const char *value
     // DEBUG
     //MPI_Send(&packSize, 1, MPI_INT, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
     //MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
-    item->tarRank = tarrank;
+    item->tarRank = (int) tarrank;
     item->pack = buf;
     item->packSize = packSize;
     if (nullptr == blockQueue) cerr << "Cannot create blocking queue." << endl;
-    blockQueue->push(item);
+    if (!blockQueue->push(item)) cerr << "Cannot request new edge" << endl;
 }
 
 void
@@ -122,7 +122,7 @@ requestOtherRanksToStoreVertex(int currank, int world_size, VertexId vertexId, E
     char *buf = new char[BUFFER_SIZE];
     int packSize = 0;
     int op = VERTEX_STORE_OP;
-    int tarrank = vertexId % world_size;
+    size_t tarrank = idBelongTo(world_size, vertexId);
     if (tarrank == currank) {
         cerr << "Putting a vertex belonging to this host to other hosts." << endl;
         return;
@@ -137,11 +137,11 @@ requestOtherRanksToStoreVertex(int currank, int world_size, VertexId vertexId, E
     //MPI_Send(&packSize, 1, MPI_INT, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
     //MPI_Send(buf, packSize, MPI_PACKED, tarrank, TAG(currank, tarrank), MPI_COMM_WORLD);
 
-    item->tarRank = tarrank;
+    item->tarRank = (int) tarrank;
     item->pack = buf;
     item->packSize = packSize;
     if (nullptr == blockQueue) cerr << "Cannot create blocking queue." << endl;
-    blockQueue->push(item);
+    if (!blockQueue->push(item)) cerr << "Cannot request new vertex" << endl;
 }
 
 // 该方法负责char *指针的delete
@@ -160,10 +160,10 @@ int processRecvRead(const char *filename, size_t pos) {
 // 该方法负责char *指针的delete
 int processRecvEdge(EdgeList *edgeList, char *value, ReadId readId, KMERPOS_t kmerpos) {
     string *strValue = new string(value, 0, getK()-1);
-    VertexId sourceVertex = getId(*strValue);
+    VertexId sourceVertex = getId(strValue->c_str());
     delete strValue;
     strValue = new string(value, 1, getK()-1);
-    VertexId sinkVertex = getId(*strValue);
+    VertexId sinkVertex = getId(strValue->c_str());
     delete strValue;
     int flag = addNewEdge(edgeList, value, sourceVertex, sinkVertex, readId, kmerpos);
     delete[] value;
@@ -348,7 +348,9 @@ void *receiverRunner(void *args) {
                 int sendMsgSize = 0;
 
                 if (vertexList->count(vertexId) == 0) {
+                    vertexList->at(vertexId);
                     cerr << "Cannot query the vertex #" << vertexId << endl;
+                    cerr << thisRank << endl;
                     queryStatus = FAILED_QUERY;
                 } else {
                     // vertex存在时
@@ -361,13 +363,15 @@ void *receiverRunner(void *args) {
                         // 并行环境下不能使用tangleList->count(vertexId) != 0来判断是否为tangle
                         queryStatus = TANGLE_QUERY;
                         Vertex *thisVertex = vertexList->at(vertexId);
-                        edgeId = *thisVertex->outKMer->begin();
+                        /*edgeId = *thisVertex->outKMer->begin();
                         // 删除vertex的一个出度
-                        removeOutEdge(vertexList, vertexId, edgeId);
+                        removeOutEdge(vertexList, vertexId, edgeId);*/
+                        getAndRemoveOutEdge(vertexList, vertexId, &edgeId); // 保护并行环境下的删除节点
                     }else {
-                        edgeId = *thisVertex->outKMer->begin();
+                        /*edgeId = *thisVertex->outKMer->begin();
                         // 删除vertex的一个出度
-                        removeOutEdge(vertexList, vertexId, edgeId);
+                        removeOutEdge(vertexList, vertexId, edgeId);*/
+                        getAndRemoveOutEdge(vertexList, vertexId, &edgeId); // 保护并行环境下的删除节点
                         queryStatus = SUCCESSFUL_QUERY;
                     }
                 }

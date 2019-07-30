@@ -28,11 +28,11 @@ void joinThreads(pthread_t tids[], int tnum, int exceptIndex = -1) {
 
 int main(int argc, char** argv) {
     int startIndex = 0;
-    string *tmp = new string;
+    string *tmpstr = new string;
     for (; startIndex < argc; ++startIndex) {
-        tmp->clear();
-        tmp->append(argv[startIndex]);
-        if (tmp->find("RandomStringAssembly") != string::npos) {
+        tmpstr->clear();
+        tmpstr->append(argv[startIndex]);
+        if (tmpstr->find("RandomStringAssembly") != string::npos) {
             break;
         }
     }
@@ -46,10 +46,10 @@ int main(int argc, char** argv) {
         cout << "program k inputfolder filenames..." << endl;
     }
 
-    tmp->clear();
-    tmp->append(argv[startIndex + 1]);
-    k = stoi(*tmp);
-    delete tmp;
+    tmpstr->clear();
+    tmpstr->append(argv[startIndex + 1]);
+    k = stoi(*tmpstr);
+    delete tmpstr;
 
     folderPath = string(argv[startIndex + 2]);
     if (*folderPath.cend() != '/') {
@@ -156,7 +156,7 @@ int main(int argc, char** argv) {
         int read4Rank = currank;
         *readId = getId(*curread);
 	/*
-        if ((read4Rank = *readId % world_size) == currank) {
+        if ((read4Rank = idBelongTo(world_size, readId)) == currank) {
             // Create a thread to process
             if (requestWriteRead(*curread) == 0) {
                 exit(1);
@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
 
             // 创建开始Vertex
             //cout << "index: " << i << "; content: " << tmpKMinusMer1 << endl;
-            if (tmpVertexId1 % world_size != currank) {
+            if (idBelongTo(world_size, tmpVertexId1) != (VertexId) currank) {
                 requestOtherRanksToStoreVertex(currank, world_size, tmpVertexId1, tmpEdgeId, HEAD_VERTEX);
             } else {
                 if ((addVertex(vertexList, tmpKMinusMer1, 0, tmpEdgeId, HEAD_VERTEX) & MULTI_OUT_DEGREE) == MULTI_OUT_DEGREE){
@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
 
             // 创建终止Vertex
             //cout << "index: " << i << "; content: " << tmpKMinusMer2 << endl;
-            if (tmpVertexId2 % world_size != currank) {
+            if (idBelongTo(world_size, tmpVertexId2) != (VertexId) currank) {
                 requestOtherRanksToStoreVertex(currank, world_size, tmpVertexId2, tmpEdgeId, TAIL_VERTEX);
             } else {
                 if ((addVertex(vertexList, tmpKMinusMer2, tmpEdgeId, 0, TAIL_VERTEX) & MULTI_OUT_DEGREE) == MULTI_OUT_DEGREE)
@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
             }
 
             // 创建Edge
-            if (tmpEdgeId % world_size != currank)
+            if (idBelongTo(world_size, tmpEdgeId) != (EdgeId) currank)
                 requestOtherRanksToStoreEdge(currank, world_size, tmpKMer, tmpEdgeId, *readId, edgeMode);
             else
                 addNewEdge(edgeList, tmpKMer, &tmpEdgeId, tmpVertexId1, tmpVertexId2, *readId, edgeMode);
@@ -232,12 +232,14 @@ int main(int argc, char** argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
+    if (0 == currank) cout << "Finish constructing DBG" << endl;
     // 等待线程
     mainThreadTellFinished(currank, world_size);
     joinThreads(sender_tid, sender_num);
     //joinThreads(receiver_tid, world_size, currank);
 
 
+    if (0 == currank) cout << "Constructing contig" << endl;
     // 在等待子线程结束之前
     // 寻找source和sink
     SetOfID *sourceList= new SetOfID;
@@ -310,10 +312,11 @@ int main(int argc, char** argv) {
         Edge *tmp = nullptr;
         string *edgeValue = new string;
         VertexId nextVertexId;
-        EdgeId nextEdgeId = *sourceVertex->outKMer->begin(); // 倘若source点有多个出度则随机选取一个出度
-        removeOutEdge(vertexList, sourceId, nextEdgeId); // 每次经过一个出度都要删除
-        int vertexInRank;
-        int edgeInRank = nextEdgeId % world_size;
+        EdgeId nextEdgeId;//  = *sourceVertex->outKMer->begin(); // 倘若source点有多个出度则随机选取一个出度
+        //removeOutEdge(vertexList, sourceId, nextEdgeId); // 每次经过一个出度都要删除
+        getAndRemoveOutEdge(vertexList, sourceId, &nextEdgeId); // 保护并行环境下的删除节点
+        size_t vertexInRank;
+        size_t edgeInRank = idBelongTo(world_size, nextEdgeId);
         if (edgeInRank != currank) { // edge不在这个机器上
             // cout << "debug" << endl;
             if (FAILED_QUERY == queryFullEdgeById(edgeValue, currank, edgeInRank, nextEdgeId)) {
@@ -340,7 +343,7 @@ int main(int argc, char** argv) {
             string *tmpEdge = new string("");
 
             // 遍历vertex
-            vertexInRank = nextVertexId % world_size;
+            vertexInRank = idBelongTo(world_size, nextVertexId);
             if (vertexInRank != currank) {
                 int flag = queryOutEdgeOfVertexById(&nextEdgeId, currank, vertexInRank, nextVertexId); // nextEdgeId 在这已经赋值
                 if (FAILED_QUERY == flag || SINK_QUERY == flag) {
@@ -361,19 +364,21 @@ int main(int argc, char** argv) {
                         // tangle被检测到
                         // 并行环境下不能使用tangleList->count(vertexId) != 0来判断是否为tangle
                         Vertex *thisVertex = vertexList->at(nextVertexId);
-                        nextEdgeId = *thisVertex->outKMer->begin();
+                        /*nextEdgeId = *thisVertex->outKMer->begin();
                         // 删除vertex的一个出度
-                        removeOutEdge(vertexList, nextVertexId, nextEdgeId);
+                        removeOutEdge(vertexList, nextVertexId, nextEdgeId);*/
+                        getAndRemoveOutEdge(vertexList, nextVertexId, &nextEdgeId); // 保护并行环境下的删除节点
                     } else {
-                        nextEdgeId = *thisVertex->outKMer->begin();
-                        removeOutEdge(vertexList, nextVertexId, nextEdgeId);
+                        /*nextEdgeId = *thisVertex->outKMer->begin();
+                        removeOutEdge(vertexList, nextVertexId, nextEdgeId);*/
+                        getAndRemoveOutEdge(vertexList, nextVertexId, &nextEdgeId); // 保护并行环境下的删除节点
                     }
                 }
             }
 
             // 通过edge查询下一个vertex
             // 添加的时候只添加一位char
-            edgeInRank = nextEdgeId % world_size;
+            edgeInRank = idBelongTo(world_size, nextEdgeId);
             if (edgeInRank != currank) { // edge不在这个机器上
                 if (FAILED_QUERY == queryEdgeById(tmpEdge, currank, edgeInRank, nextEdgeId)) {
                     delete tmpEdge;
@@ -453,7 +458,7 @@ int main(int argc, char** argv) {
         outfile << superContig << endl;
         outfile.close();
     } else {
-        superContigSS.str(tmpContig);
+        tmpContig = superContigSS.str();
         sendSuperContigToRankHead(0, currank, tmpContig);
     }
 

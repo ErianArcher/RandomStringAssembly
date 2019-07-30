@@ -224,13 +224,38 @@ int removeOutEdge(const VertexList *vList, const VertexId vId, const EdgeId eId)
     }
     v->outKMer->erase_item(eId);
     v->outDegree--;
-    pthread_mutex_unlock(&kMinusMutex);
+
     if (v->outKMer->size() != v->outDegree) {
         cerr << "Error occurs when removing out edge #"<< eId << "from vertex #" << vId << ".\n";
         v->outDegree++;
         return 0;
     }
+    pthread_mutex_unlock(&kMinusMutex);
     return 1;
+}
+
+int getAndRemoveOutEdge(const VertexList *vList, VertexId vId, EdgeId *eId) {
+    if (vList->find(vId) == vList->end()) {
+        cerr << "Error occurs when deleting an out edge of an non-exist vertex #" << vId << ".\n";
+        return 0;
+    }
+    Vertex *v = vList->at(vId);
+    pthread_mutex_lock(&kMinusMutex);
+    EdgeId nextOutEdgeToDelete = *v->outKMer->begin();
+    if (v->outKMer->count(nextOutEdgeToDelete) == 0) {
+        cerr << "Error occurs when deleting an non-exist out edge #" << eId<< " of a vertex #" << vId << ".\n";
+        return 0;
+    }
+    v->outKMer->erase_item(nextOutEdgeToDelete);
+    v->outDegree--;
+    *eId = nextOutEdgeToDelete;
+    if (v->outKMer->size() != v->outDegree) {
+        cerr << "Error occurs when removing out edge #"<< eId << "from vertex #" << vId << ".\n";
+        v->outDegree++;
+        return 0;
+    }
+    pthread_mutex_unlock(&kMinusMutex);
+    return 0;
 }
 
 int freeVertex(Vertex *pVertex) {

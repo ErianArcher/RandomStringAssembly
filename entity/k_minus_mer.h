@@ -57,5 +57,7 @@ int addOutEdge(const VertexList *vList, VertexId vId, EdgeId eId);
 
 int removeOutEdge(const VertexList *vList, VertexId vId, EdgeId eId);
 
+int getAndRemoveOutEdge(const VertexList *vList, VertexId, EdgeId *eId);
+
 int freeVertex(Vertex *pVertex);
 #endif //RANDOMSTRINGASSEMBLY_K_MINUS_MER_H

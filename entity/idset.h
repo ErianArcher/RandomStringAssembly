@@ -18,6 +18,8 @@ inline size_t getId(const char *value) {
     return std::hash<std::string>()(value);
 }
 
+size_t idBelongTo(int world_size, size_t id);
+
 //typedef std::unordered_set<size_t> SetOfID;
 typedef size_t ReadId;
 typedef size_t VertexId;
